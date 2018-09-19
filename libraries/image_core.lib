@@ -1,0 +1,457 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+function DLLimg(path,x,y,lg,options) locals opt,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,crop,p,temp,w,h do
+# OPTIONS-
+^
+     img='border="0"'
+       a='href="http://www.google.com"'
+  magick=''
+      id='something'
+  NORESIZE
+  OVERWRITE
+  CROP
+^
+  The last three are unary operators, id could be part of the img or a tag
+/#
+
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ if options="" or options="ERROR" then
+  crop="FALSE" cmdopt="" OVERWRITE="FALSE" NORESIZE="FALSE" link="" imgopt="" uid=""
+ else
+  opt=ci_parse(options)
+  #######################################/#
+       crop=getvalue(opt,'CROP')
+     cmdopt=getvalue(opt,'MAGICK')
+  overwrite=getvalue(opt,'OVERWRITE')
+   noresize=getvalue(opt,'NORESIZE')
+       link=getvalue(opt,'A')
+     imgopt=getvalue(opt,'IMG')
+        uid=getvalue(opt,'ID')
+  #######################################/#
+ /if
+ return img11(path,x,y,lg,imgopt,link,noresize,overwrite,crop,uid,cmdopt) /return
+/function
+
+
+
+
+function DLLimg11(path,x,y,lg,imgopt,link,noresize,overwrite,crop,uid,cmdopt) do
+ if cmdopt='' or cmdopt='ERROR' then
+ else
+  cmd=chopright(cmdopt,' ') cmdopt=replace(cmdopt,cmd,'') cmd=replace(cmd,' ','')
+ /if
+ if x='' or y='' or x='ERROR' or y='ERROR' then
+  # crop wont work without image dimensions set /#
+ else
+  if crop="TRUE" or crop="CROP" then
+   temp=ci_identify(path)
+   ratio=(x/y)
+   if (temp[1]/temp[2])<ratio then
+    # Portrait or square like /#
+    w=round(temp[1])  h=round(temp[1]/ratio)
+   else
+    # Long landscape like /#
+    h=round(temp[2])  w=round(temp[2]*ratio)
+   /if
+   cmdopt=^-runfirst -gravity center -crop ^+w+^x^+h+^+0+0^ 
+  /if
+ /if
+ if cmdopt<>'' and cmdopt<>'ERROR' then if cmd='' or cmd='ERROR' then cmd='CONVERT' /if /if
+ if noresize="TRUE" or noresize="noresize" then
+  img=ci_identify(path)
+  if img[1]>x or img[2]>y then
+   # Leave x and y values as they came in /#
+  else
+   x='' y=''
+  /if
+ /if
+ if link='.href' then
+  temp=ci_extract(path)
+  if isfile(temp[1,1]+temp[2,1]+".href") then
+   copy file=temp[1,1]+temp[2,1]+".href" to link /copy
+  else
+   link=""
+  /if
+  editlink='<area shape="rect" alt="" coords="12,0,23,11" '+ci_pophrefeditor(temp[1]+temp[2]+'.href')+'>'
+  icon='pictlink'
+ else
+  editlink=''
+  icon='pict'
+ /if
+ if overwrite='OVERWRITE' then overwrite='TRUE' /if
+ if overwrite<>'TRUE' then overwrite='FALSE' /if
+ return DLLci_imageALL2options(path,x,y,lg,qt,cmd,cmdopt,imgopt,link,editlink,icon,overwrite,lower(uid)) /return
+ #
+   temp='ERROR'
+   temp[1,1]='path'      temp[2,1]=path
+   temp[1,2]='x'         temp[2,2]=x
+   temp[1,3]='y'         temp[2,3]=y
+   temp[1,4]='lg'        temp[2,4]=lg
+   temp[1,5]='qt'        temp[2,5]=qt
+   temp[1,6]='cmd'       temp[2,6]=cmd
+   temp[1,7]='cmdopt'    temp[2,7]=cmdopt
+   temp[1,8]='imgopt'    temp[2,8]=imgopt
+   temp[1,9]='link'      temp[2,9]=link
+   temp[1,10]='editlink' temp[2,10]=editlink
+   temp[1,11]='icon'     temp[2,11]=icon
+ /#
+/function
+
+
+
+
+function DLLci_parse(t) locals text,indel,indelval,l,x,y,indelx,a,d,z do
+ t=replaceall(t,lf,' ')
+ t=replaceall(t,cr,' ')
+ text=t
+ indel='FALSE' indelval='ERROR'
+ l=length(text)
+ for name=x value=1 to l do
+  y=middle(text,x,x)
+  if indel='FALSE' then
+   if y="'" or y='"' or y="^" then text=left(text,x-1)+' '+right(text,l-x) indel='TRUE' indelval=y indelx=x /if
+   if y=' ' then text=left(text,x-1)+ascii(8)+right(text,l-x) /if
+  else
+   if y=indelval then
+    text=left(text,x-1)+' '+right(text,l-x)
+    a[1]=indelx a[2]=x a[3]=indelval
+    indel='FALSE'
+    indelval='ERROR'
+   /if
+  /if
+ /for
+ d='ERROR'
+ text=split(text,ascii(8))
+ for name=text rowname=x do
+  z='ERROR'
+  z[1]=trim(replace(chopright(x,'='),'=','')) z[2]=trim(replace(chopleft(x,'='),'=',''))
+  d=appends(d,z)
+ /for
+ return d /return
+/function
+
+function DLLgetvalue(tab,nam) locals x do
+ for name=tab rowname=x do
+  if x[1]=nam then return x[2] /return /if
+ /for
+ return 'ERROR' /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+# START These Functions should only be called after an image tag /#
+function ci_uploadicons(path,editlink,icon) locals mp,r do
+ mp=replaceall(replaceall(path,'/',''),".","")+"x"+random(10,99)
+ r='<img src="/apps/imageservices/'+icon+'" border="0" usemap="#'+mp+'"><map name="'+mp+'"><area shape="rect" alt="" coords="0,0,11,11" '+ci_pophref(path)+'>'+editlink+'</map>'
+ return r /return
+/function
+
+
+
+
+
+function ci_uploadicon(path) do
+ return ci_popup(path,'<img src="/apps/imageservices/pictphoto.gif" alt="'+path+'" border="0" width=12 height=12>') /return
+/function
+
+
+
+
+
+function DLLci_pophref(path) do
+  if CI_AFTERUPLOAD<>"ERROR" and CI_AFTERUPLOAD<>"" then
+   path=path+','+CI_AFTERUPLOAD+','+CI_AFTERUPLOADID
+  /if
+  return ci_parsehrefall('HREF="'+ci_prefs[1,9]+'" name="ci_imagepath" value="'+path+'" popup="570,445"','CI'+path,'ERROR') /return
+/function
+
+
+
+
+
+function DLLci_pophrefeditor(path) do 
+  return ci_parsehrefall('HREF="/apps/imageservices/hrefeditor.html" name="ci_imagepath" value="'+path+'" popup="400,200"','CI'+path,'ERROR') /return
+/function
+# END These Functions should only be called after an image tag /#
+
+
+
+
+
+function DLLci_imgcrop(path,wid,hgt,login,float,force) locals a,b,x,y,x1,y1,h,w,ratio do
+ if ci_registeredversion<3 then return "ci_imgcrop(path,x,y,login,float,force) requires Image Services 3.0 or greater" /return /if
+ # Valid values for float are
+   left,center,right,top,middle,bottom,none
+   left and top do the same thing
+   center and middle do the same thing
+   right and bottom do the same thing
+ /#
+ ratio=(wid/hgt)
+ if force<>"TRUE" then
+  a=ci_img(path,wid,hgt,login)
+  b=ci_tagresults
+  if abs(b[1]-wid)<2 and abs(b[2]-hgt)<2 then return a /return /if
+ /if
+ b=ci_identify(path)
+ if left(b[1],5)="ERROR" then return ci_img(path,wid,hgt,login) /return /if
+ x=b[1]
+ y=b[2]
+ if (x/y)<ratio then
+  # Portrait or square like /#
+   w=round(x)  h=round(x/ratio)
+  if float="left" or float="top" then
+   x1=0        y1=0
+  elif float="center" or float="middle" then
+   x1=0        y1=round((y-h)/2)
+  elif float="right" or float="bottom" then
+   x1=0        y1=round(y-h)
+  else
+   x1=0        y1=round((y-h)/2)
+  /if
+ else
+  # Long landscape like /#
+   h=round(y)  w=round(y*ratio)
+  if float="left" or float="top" then
+   y1=0        x1=0
+  elif float="center" or float="middle" then
+   y1=0        x1=round((x-w)/2)
+  elif float="right" or float="bottom" then
+   y1=0        x1=round(x-w)
+  else
+   y1=0        x1=round((x-w)/2)
+  /if
+ /if
+ return ci_img2(path,wid,hgt,login,"","convert",'OVERWRITE-runfirst -crop '+w+'x'+h+'+'+x1+'+'+y1) /return
+/function
+
+
+function DLLci_imageALL2options(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,id) locals ci_temp,ci_temp1 do
+ # Add Postscript Support /#
+ if right(path,4)='.eps' then
+  ci_temp=ci_showeps(path,244) 
+  ci_temp=ci_extract(path) path=path+'.png' ci_temp='ERROR'
+  ci_temp=DLLci_imageALLALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,id)
+  ci_temp1=sysrm(path)
+  return ci_temp /return
+ else
+  return DLLci_imageALLALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,id) /return
+ /if
+/function
+
+
+function DLLci_imageALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon) locals overwrite,ci_temp,ci_temp1,id do
+ if left(cmdoptions,9)='OVERWRITE' then overwrite='TRUE' cmdoptions=right(cmdoptions,length(cmdoptions)-9) else overwrite='FALSE' /if
+ # Add Postscript Support /#
+ if right(path,4)='.eps' then
+  ci_temp=ci_showeps(path,244) 
+  ci_temp=ci_extract(path) path=path+'.png' ci_temp='ERROR'
+  ci_temp=DLLci_imageALLALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,'ERROR')
+  ci_temp1=sysrm(path)
+  return ci_temp /return
+ else
+  return DLLci_imageALLALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,'ERROR') /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLci_convertimagealloptions(src,dest,max.x,max.y,qt,cmd,cmdoptions,icon) locals MIFF,ord,srcid,miffcode,wmcode,lgcode,cmdcode,rscode,jpegcode,x,y,z,dbg,t,iconpath do
+ if src=dest then return ci_identify(src) /return /if
+ if cmd<>"convert" and cmd<>"composite" then cmd="" cmdoptions='' /if
+ if cmdoptions='ERROR' or cmdoptions='' then cmdoptions='' cmd='' /if
+ if cmd="convert" then cmd=ci_prefs[1,7] /if
+ if cmd="composite" then cmd=ci_prefs[1,8] /if
+ if count(cmdoptions,"-runfirst")>0 then ord="1" cmdoptions=replaceall(cmdoptions,"-runfirst","") else ord="0" /if 
+ if cmd+cmdoptions<>"" then cmdcode=cmd+' '+trim(cmdoptions)+' ' else cmdcode="" /if
+ wmcode="" lgcode=""
+ if left(src,1) <>"/" then src =dirname(page)+src  /if
+ if left(dest,1)<>"/" then dest=dirname(page)+dest /if
+ if not(isinteger(qt)) then qt=ci_prefs[1,2] /if
+ ci_root=htmlos.conf.DocumentPath
+ srcid=ci_identify(src)
+
+
+if srcid[3]='PNG' then MIFF='PNG' else MIFF='MIFF' /if
+
+ if srcid[9]=6 then
+  # System Command is disabled /#
+  return srcid /return
+ else
+  if srcid[5]="PRIVATE" then ci_root=htmlos.conf.HTMLOSPrivate+'/' /if 
+ /if
+ if ci_registered<>"TRUE" and domainname<>'wbl.me' then
+  if left(ci_prefs[1,8],7)="combine" then
+   wmcode=ci_prefs[1,8]+' '+ci_root+dest+' '+htmlos.conf.DocumentPath+'/apps/imageservices/cilogo.gif '
+  else
+   wmcode=ci_prefs[1,8]+' -dissolve 25 -gravity center '+htmlos.conf.DocumentPath+'/apps/imageservices/cilogo.gif '
+  /if
+ /if
+ if count(dest,ci_prefs[1,4]+ci_prefs[1,5])>0 then
+
+# srcid[3]=ci_prefs[1,19] # This is the default format for Images with the upload icon /#
+
+  if left(icon,1)='/' then 
+   iconpath=''
+  else
+   iconpath='/apps/imageservices/'
+  /if
+
+
+  if left(ci_prefs[1,8],7)="combine" then
+   lgcode=ci_prefs[1,8]+' '+ci_root+dest+' '+htmlos.conf.DocumentPath+iconpath+icon+'.gif '
+  else
+   if ci_prefs[1,3]=100 then
+    lgcode=ci_prefs[1,8]+' '+htmlos.conf.DocumentPath+iconpath+icon+'.gif '
+   else
+    lgcode=ci_prefs[1,8]+' -dissolve '+ci_prefs[1,3]+' '+htmlos.conf.DocumentPath+iconpath+icon+'.gif '
+   /if
+  /if
+ /if
+ if max.x="" or max.y="" then rscode="" else rscode=ci_prefs[1,7]+' -geometry '+max.x+'x'+max.y+' ' /if
+ miffcode=ci_prefs[1,7]+' -auto-orient -quality 100 -strip '
+ jpegcode=ci_prefs[1,7]+' -interlace none -quality '+qt+' '
+ if rscode="" and cmdcode="" and lgcode="" and wmcode="" then
+  x=ci_identify(dest)
+  if x[9]=4 then
+   y=syscp(src,dest)
+   y=sysfixpublic(dest)
+   x=ci_identify(dest) x[11]=x[11]+"(ci_convert) source file copied to destination file (/ci_convert)"
+  else
+   x[11]=x[11]+"(ci_convert) ERROR: Nothing for convert to do (/ci_convert)"
+  /if
+  return x /return
+ /if
+ y="" dbg=""
+ if miffcode<>"" then t=miffcode+ ci_root+src+" "+MIFF+":"  +htmlos.conf.DocumentPath+dest      y[1,1]="--miffcode" y[2,1]=t y[3,1]=syscall('ImageServices:001',t+RD2GTAMP1) /if
+
+ if ord=0 then
+  if   rscode<>"" then t=rscode  + htmlos.conf.DocumentPath+dest+" "+MIFF+":"+htmlos.conf.DocumentPath+dest y[1,2]="rscode"   y[2,2]=t y[3,2]=syscall('ImageServices:002',t+RD2GTAMP1) /if
+ /if
+ if  cmdcode<>"" then
+  if count(cmdcode,"[SRC]")=1 then cmdcode=replace(cmdcode,"[SRC]",htmlos.conf.DocumentPath+dest)
+                      t=cmdcode +" "+MIFF+":"+htmlos.conf.DocumentPath+dest                     y[1,3]="cmdcode"  y[2,3]=t y[3,3]=syscall('ImageServices:003',t+RD2GTAMP1)
+  else
+                      t=cmdcode+htmlos.conf.DocumentPath+dest+" "+MIFF+":"+htmlos.conf.DocumentPath+dest y[1,3]="cmdcode"  y[2,3]=t y[3,3]=syscall('ImageServices:004',t+RD2GTAMP1)
+  /if
+ /if
+ if ord=1 then
+  if   rscode<>"" then t=rscode  + htmlos.conf.DocumentPath+dest+" "+MIFF+":"+htmlos.conf.DocumentPath+dest y[1,2]="rscode"   y[2,2]=t y[3,2]=syscall('ImageServices:005',t+RD2GTAMP1) /if
+ /if
+ if   lgcode<>"" then t=lgcode  + htmlos.conf.DocumentPath+dest+" "+MIFF+":"+htmlos.conf.DocumentPath+dest y[1,4]="lgcode"   y[2,4]=t y[3,4]=syscall('ImageServices:006',t+RD2GTAMP1) /if
+ if   wmcode<>"" then t=wmcode  + htmlos.conf.DocumentPath+dest+" "+MIFF+":"+htmlos.conf.DocumentPath+dest y[1,5]="wmcode"   y[2,5]=t y[3,5]=syscall('ImageServices:007',t+RD2GTAMP1) /if
+
+ if jpegcode<>"" then
+  t=jpegcode+ htmlos.conf.DocumentPath+dest+" "+srcid[3]+":"+htmlos.conf.DocumentPath+dest             y[1,6]="jpegcode" y[2,6]=t y[3,6]=syscall('ImageServices:008',t+RD2GTAMP1)
+ else
+  t=ci_prefs[1,7]+' '+htmlos.conf.DocumentPath+dest+" "+srcid[3]+":"+htmlos.conf.DocumentPath+dest     y[1,7]="fincode"  y[2,7]=t y[3,7]=syscall('ImageServices:009',t+RD2GTAMP1)
+ /if
+
+  z=""
+
+ # 
+ #   dbg='<system src="'+src+'" dest="'+dest+'" width="'+max.x+'" height="'+max.y+'" quality="'+qt+'" command="'+cmd+'" commandoptions="'+cmdoptions+'" icon="'+icon+'.gif">'+lf
+ #   for name=x value=1 to 7 do
+ #    if 1=1 or domainname="wbl.me" or x=3 then 
+ #     if y[1,x]<>"" and y[1,x]<>"ERROR" then
+ #      dbg=dbg+' <'+y[1,x]+'>'+lf+
+ #              '  <command>'+y[2,x]+'</command>'+lf+
+ #              '  <error>'+replaceall(y[3,x],lf,' ')+'</error>'+lf+
+ #              ' </'+y[1,x]+'>'+lf
+ #      if y[3,x]<>"" and y[3,x]<>"ERROR" then z=z+y[3,x]+" "+lf /if
+ #     /if
+ #    /if
+ #   /for
+ #   dbg=dbg+'</system>'+lf
+ # 
+ #   append dbg to file='/apps/imageservices/syscall.log' /append
+/# 
+
+ x=ci_identifycache2(dest,0)
+
+
+ if isinteger(x[1]) then
+  x[11]=x[11]+"(ci_convert) TRUE "+z+" (/ci_convert)"
+ else
+  x[1]=x[1]+'y:('+y+') dbg:('+dbg+')' x[11]=x[11]+"(ci_convert)Unexpected Failure: See Log "+z+" (/ci_convert)"
+ /if
+ x[12]=dbg
+ ci_tagresults=x
+ return x /return
+/function
+
+
+
+
+function DLLci_randomimage(rndmsg1) locals a,temp,rndmsg,ci_demo,cidemo,x,aa do
+  if not(isfile("/apps/imageservices/tmp/verify"+usernum+".jpg")) then temp=ci_cpfile("/apps/imageservices/images/verify.jpg","/apps/imageservices/tmp/verify"+usernum+".jpg") /if
+  if rndmsg1='' or rndmsg1='ERROR' or length(rndmsg1)<>4 then
+   rndmsg="X"
+   a=random(1,31) if a<9 then a=a+49 elif a<20 then a=a+88 elif a<22 then a=a+89 else a=a+90 /if
+   rndmsg=rndmsg+ascii(a)
+   a=random(1,31) if a<9 then a=a+49 elif a<20 then a=a+88 elif a<22 then a=a+89 else a=a+90 /if
+   rndmsg=rndmsg+ascii(a)
+   a=random(1,31) if a<9 then a=a+49 elif a<20 then a=a+88 elif a<22 then a=a+89 else a=a+90 /if
+   rndmsg=rndmsg+ascii(a)
+   a=random(1,31) if a<9 then a=a+49 elif a<20 then a=a+88 elif a<22 then a=a+89 else a=a+90 /if
+   rndmsg=rndmsg+ascii(a)
+   rndmsg=right(rndmsg,4)
+  else
+   rndmsg=rndmsg1
+  /if
+  ci_demo=filelist("/apps/imageservices/tmp/")
+  for name=ci_demo rowname=x do
+   if adddays(left(x[3],8),0)=today or adddays(left(x[3],8),0)=yesterday then else
+    if x[1]<>"is.gif" then temp1=ci_rmimage("/apps/imageservices/tmp/"+x[1]) /if
+   /if
+  /for
+  aa='OVERWRITE-font '+HELVETICA_FONT+' -pointsize 33 -fill "#ffffff" '+
+     '-draw "text '+(random(0,10)+6)+','+(25+random(7,13))+' '+"'"+middle(rndmsg,1,1)+"'"+'" '+
+     '-draw "text '+(random(0,10)+39)+','+(25+random(7,13))+' '+"'"+middle(rndmsg,2,2)+"'"+'" '+
+     '-draw "text '+(random(0,10)+72)+','+(25+random(7,13))+' '+"'"+middle(rndmsg,3,3)+"'"+'" '+
+     '-draw "text '+(random(0,10)+106)+','+(25+random(7,13))+' '+"'"+middle(rndmsg,4,4)+"'"+'"'
+  x='ERROR'
+  x[1]=ci_img2("/apps/imageservices/tmp/verify"+usernum+".jpg","","","FALSE","","convert",aa)
+  x[2]=rndmsg
+  return x /return
+/function
+
+
+
+function DLLsyscall(pl,text) locals a,b,c,tempA,tempB do
+ # This is a replacement for the system() tag. It will query Image Services to see if the tag should be logged
+ /#
+ if ci_prefs[1,17]<>0 then
+  b=systime
+  c=text
+  tempA=now+' '+page+'?'+pl+' '
+  a=system(text)
+  tempB=(systime-b)+' ^'+c+'^ '+a+lf
+  append tempA+' EXECUTE TIME:'+tempB to file="/apps/imageservices/syscall.log" /append
+  return a /return
+ else
+  a=system(text)
+  return a /return
+ /if
+/function
+

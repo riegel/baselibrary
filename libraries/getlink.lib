@@ -1,0 +1,98 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+
+
+
+
+
+ # These next few functions are to help retain the page used when an overlay is called using the ; (semicolon) notation
+ # 
+ # 
+ # Usage:
+ #  formlink('router.overlay;OVERLAYNAME')
+ #  pagelink('router.overlay;OVERLAYNAME')
+ #  pagelink1('router.overlay;OVERLAYNAME')
+ #  pagelink3('router.overlay;OVERLAYNAME',varname,varvalue)
+ # 
+ # use get_() in the semicolon poverlay to set page_ and also tag
+ # the get_() function will set page_ and will also set 
+/#
+
+function DLLformlink(pg,allowedvars) locals x,r do
+ route_whatURI('GLOBALr')
+ return getlink(pg,'GET_',page+'?'+GLOBALr,'ERROR','ERROR',allowedvars) /return
+/function
+
+function DLLpagelink(pg,nm,vl) locals x,r do
+ route_whatURI('GLOBALr')
+ return getlink(pg,'GET_',page+'?'+GLOBALr+'?'+nm+'='+postprep(vl)) /return
+/function
+
+function DLLpagelink1(pg) locals x,r do
+ route_whatURI('GLOBALr')
+ return getlink(pg,'GET_',page+'?'+GLOBALr) /return
+/function
+
+
+
+function DLLget_() locals url,thenames,thecode do
+ page_=page
+ if get_<>'' and get_<>'ERROR' then
+  url=split(get_,'?')
+  page_=url[1,1]
+  tag=url[1,2]
+
+tag=replaceall(tag,'/'+domainid,'')
+
+  if count(url[1,3],'=')=1 then
+   thenames=split(url[1,3],'=')
+   thecode=thenames[1,1]+'=unpostprep("'+replaceall(thenames[1,2],'"',^"+'"'+"^)+'")'
+   $(thecode)
+  /if
+ /if
+ get_='ERROR'
+/function
+
+
+
+
+
+
+
+
+
+
+
+function DLLpage_() do
+ if page_<>'' and page_<>'ERROR' then
+  return page_ /return
+ else
+  return page /return
+ /if
+/function
+
+
+
+function DLLmessage(themsg) locals x,thepage do
+ if page_='ERROR' then thepage=page else thepage=page_ /if
+ x='MSG'+replaceall(thepage,'/','.')
+ if themsg='' or themsg='ERROR' or themsg=0 then
+  themsg=@x
+  @x='ERROR'
+ else
+  @x=themsg
+ /if
+ if themsg='ERROR' then themsg='' /if
+ return themsg /return
+/function
+
+
+

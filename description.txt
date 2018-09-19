@@ -1,0 +1,1 @@
+This is the base install needed for all Clear Image apps.

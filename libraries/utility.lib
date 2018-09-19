@@ -1,0 +1,671 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+function DLLnormalizeCSV(pathtoRFCcsv,pathtocsv) locals i,inside,out,rawtext,usechar,current,lt do
+ # 
+ # This function takes any RFC 4180 file and normailzes it
+ # by adding quotes around EVERY field, the spec says fileds
+ # may be quoted. This function adds quotes to any fields that
+ # do not have them.
+ #
+ # It also blindly changes ASCII(11) to ASCII(10) and ASCII(12) to ASCII(13) as this appears
+ # to be how FileMaker Pro handles line feeds and carriage returns
+/# 
+
+ copy file=fileprep(pathtoRFCcsv) to rawtext /copy
+ i=0
+ inside="FALSE"
+ out='"'
+ lt=length(rawtext)
+ while i<=lt do i=i+1
+  usechar='ERROR'
+  current=middle(rawtext,i,i)
+  if inside="FALSE" and current='"' then
+   inside="TRUE" usechar='FALSE'
+  elif inside="TRUE" and middle(rawtext,i,i+1)='^"' then
+   i=i+1 usechar='^"'
+  elif inside="TRUE" and middle(rawtext,i,i+1)='""' then
+   i=i+1 usechar='^"'
+  elif inside="TRUE" and current='"' then
+   inside="FALSE" usechar='FALSE'
+  elif inside='FALSE' then
+   if current=',' then
+    usechar='","'
+    if middle(rawtext,i+1,i+1)='"' then inside='TRUE' i=i+1 else inside='FALSE' /if
+   elif middle(rawtext,i,i+1)=CR+LF then
+    i=i+1
+    usechar='"'+LF
+    if i<>lt then
+     usechar=usechar+'"'
+     if middle(rawtext,i,i)='"' then i=i+1 inside='TRUE' /if
+    /if
+   elif current=CR then
+    usechar='"'+LF
+    if i<>lt then
+     usechar=usechar+'"'
+     if middle(rawtext,i,i)='"' then i=i+1 inside='TRUE' /if
+    /if
+   elif current=LF then
+    usechar='"'+LF
+    if i<>lt then
+     usechar=usechar+'"'
+     if middle(rawtext,i,i)='"' then i=i+1 inside='TRUE' /if
+    /if
+   /if
+  /if
+  if usechar='ERROR' then usechar=current /if
+  if usechar=ascii(11) then usechar=LF /if
+  if usechar=ascii(12) then usechar=CR /if
+  if usechar<>'FALSE' then
+   out=out+usechar
+  /if
+ /while
+ copy out to file=fileprep(pathtocsv) /copy
+ sysfixprivate(fileprep(pathtocsv))
+ return '' /return
+/function
+
+
+
+
+
+function DLLbuild_cache_for(library_path,function_prepend,cache_folder,TTL) locals apifuncs,temp1,apifunction,x,paramcount,text,theparams,thepostprep do
+ if isdir('/user/cache/TTL'+TTL) then cache_folder='/user/cache/TTL'+TTL+'/' /if
+ if isdir(cache_folder) and isfile(library_path) then
+  copy file=library_path to apifuncs /copy
+  temp1=split(lf+lf+apifuncs,lf+'function ')
+  apifuncs='ERROR'
+  for name=temp1 rowname=apifunction do
+   x='ERROR' x[1]=trim(chopright(apifunction[1],') '))
+   if left(x[1],length(function_prepend))=function_prepend then
+    paramcount=count(x[1],',')+1
+    if paramcount=1 and count(x[1],'()')=1 then paramcount=0 /if
+    x[2]=paramcount
+    apifuncs=appends(apifuncs,x)
+   /if
+  /for
+  text=''
+  copy apifuncs to file=cache_folder+function_prepend+'_API_FUNCTIONS.csv' /copy
+  sysfixprivate(cache_folder+function_prepend+'_API_FUNCTIONS.csv')
+  for name=apifuncs rowname=x do
+   theparams=''
+   thepostprep=''
+   if x[2]>0 then
+    x[1]=chopchopright(x[1],'(')
+    for name=y value=1 to x[2] do
+     theparams=theparams+^x^+y+^,^
+     thepostprep=thepostprep+^+left(e_(postprep(x^+y+^)),16)+hash(e_(postprep(x^+y+^)))+'-'^
+    /for
+    theparams=left(theparams,length(theparams)-1)
+    thepostprep=left(thepostprep,length(thepostprep)-4)
+    text=text+
+     ^function ^+x[1]+^_CACHE(^+theparams+^) locals temp,cachefile do^+lf+
+     ^ cachefile='^+cache_folder+x[1]+^-'^+thepostprep+^+'.csv'^+lf+
+     ^ if isfile(cachefile) then^+lf+
+     ^  copy file=cachefile ts=',' to temp /copy^+lf+
+     ^  temp=d_(temp)^+lf+
+     ^ else^+lf+
+     ^  temp=^+x[1]+^(^+theparams+^)^+lf+
+     ^  copy e_(temp) to file=cachefile ts=',' /copy^+lf+
+     ^  sysfixprivate(cachefile)^+lf+
+     ^ /if^+lf+
+     ^ return temp /return^+lf+
+     ^/function^+lf+
+     ^^+lf+
+     ^function ^+x[1]+^_CACHE_FILE(^+theparams+^) do^+lf+
+     ^ return '^+cache_folder+x[1]+^-'^+thepostprep+^+'.csv' /return^+lf+
+     ^/function^+lf+lf+lf  
+ 
+   /if
+  /for
+ else
+  text='# Make sure cache folder and library exist /#'
+ /if
+ return text /return
+/function
+
+
+
+function DLLiconpage(p) do
+ if count(p,'/system/')>0 or count(p,dirname(page))>0 then
+  if iconpage<>'' and iconpage<>'ERROR' then
+   return iconpage /return
+  else
+   return p /return
+  /if
+ else
+  return p /return
+ /if
+/function
+
+
+
+ # 
+ # function DLLnakeddomain(url) locals c,t,n,x,l do
+ #  # We need to extract the naked domain from domainid
+ #  # 
+ #  # The general idea is we break the URL into segments
+ #  # then we return the last 2 or in some cases 3 segments
+ #  # if the penultimate segment is .com then we return last 3 segments
+ #  # otherwise we return the last 2 segments
+ # /#
+ #  url=replace(url,'@','.')
+ #  url=trim(url)
+ # 
+ #    if left(url,7)='http://'  then url=replace(url,'http://' ,'')
+ #  elif left(url,8)='https://' then url=replace(url,'https://','')
+ #  elif left(url,2)='//'       then url=replace(url,'//'      ,'')
+ #  /if
+ # 
+ #  url=chopchopright(url,'/')
+ #  c=2 # this is the number of allowed periods for the naked domain it starts at 2 /#
+ #  l=length(url)
+ #  if middle(url,(l-6),(l-6)+4)='.com.' then c=3 /if
+ #  t=split(url,'.')
+ #  n=''
+ #  for name=x value=1 to c do
+ #   n=showwith('',t[1,rows(t)-x+1],'')+showwith('.',n,'')
+ #  /for
+ #  if left(n,1)='.' then n=right(n,length(n)-1) /if
+ #  return n /return
+ # /function
+/#
+
+
+function nakeddomain_unpuny(text) locals x do
+ if left(text,4)='xn--' then
+  if temp_57362_puny='ERROR' then copy file="/system/clearimage/database/public_suffix_puny.txt" ts="," to temp_57362_puny /copy /if
+  for name=temp_57362_puny rowname=x do
+   if text=x[1] then text=x[2] BREAK /if
+  /for
+ /if
+ return text /return
+/function
+
+
+function DLLnakeddomain(dom) locals d,seg,sav,last,r,s do
+
+ dom=chopchopleft(dom,'@')
+ dom=trim(dom)
+   if left(dom,7)='http://'  then dom=replace(dom,'http://' ,'')
+ elif left(dom,8)='https://' then dom=replace(dom,'https://','')
+ elif left(dom,2)='//'       then dom=replace(dom,'//'      ,'')
+ /if
+
+ dom=chopchopright(dom,'/')
+
+ if left(dom,1)='.' then return 'ERROR' /return /if
+ d='/system/clearimage/database/public_suffix_list'
+ sav=gettable(reversecols(listtorow(dom,'.')),1,7,1,1)
+ seg=sav
+ seg[1]=nakeddomain_unpuny(seg[1])
+ seg[2]=nakeddomain_unpuny(seg[2])
+ seg[3]=nakeddomain_unpuny(seg[3])
+ seg[4]=nakeddomain_unpuny(seg[4])
+ seg[5]=nakeddomain_unpuny(seg[5])
+ seg[6]=nakeddomain_unpuny(seg[6])
+    last=0
+ if last=0 then r=                                                       seg[1] s=                                                       sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=1 /if /if
+ if last=0 then r=                                            seg[2]+'.'+seg[1] s=                                            sav[2]+'.'+sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=2 /if /if
+ if last=0 then r=                                 seg[3]+'.'+seg[2]+'.'+seg[1] s=                                 sav[3]+'.'+sav[2]+'.'+sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=3 /if /if
+ if last=0 then r=                      seg[4]+'.'+seg[3]+'.'+seg[2]+'.'+seg[1] s=                      sav[4]+'.'+sav[3]+'.'+sav[2]+'.'+sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=4 /if /if
+ if last=0 then r=           seg[5]+'.'+seg[4]+'.'+seg[3]+'.'+seg[2]+'.'+seg[1] s=           sav[5]+'.'+sav[4]+'.'+sav[3]+'.'+sav[2]+'.'+sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=5 /if /if
+ if last=0 then r=seg[6]+'.'+seg[5]+'.'+seg[4]+'.'+seg[3]+'.'+seg[2]+'.'+seg[1] s=sav[6]+'.'+sav[5]+'.'+sav[4]+'.'+sav[3]+'.'+sav[2]+'.'+sav[1] dbfind(d,'RULE="'+r+'"',1,1000,'RULE') if tagresults[5,1]<>1 then last=6 /if /if
+
+ dbfind(d,'RULE="*.'+r+'"',1,1000,'RULE')
+ if tagresults[5,1]=1 then
+  # make sure we aren't in the deny list /#
+  dbfind(d,'RULE="!'+seg[last+1]+'.'+r+'"',1,1000,'RULE')
+  if tagresults[5,1]=1 then
+   s=                sav[last+1]+'.'+s
+  else
+   s=sav[last+2]+'.'+sav[last+1]+'.'+s
+  /if
+ elif last=1 then
+  s='ERROR'
+ /if
+ if left(s,1)='.' then return 'ERROR' /return /if
+ return s /return
+/function
+
+
+
+
+
+
+function DLLfreemem() locals temp,x do
+ temp=syscall('free','/usr/bin/free')
+ while count(temp,'  ')>0 do
+  temp=replaceall(temp,'  ',' ')
+ /while
+ temp=ci_deltexttovar(temp,lf,' ')
+ return temp[4,3] /return
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLaddstartlink(path,var,cookie) locals allowlist,f,x do
+ return startlinkstuff(path,var,cookie,'ADD') /return
+/function
+
+function DLLremovestartlink(path) locals allowlist,f,x do
+ return startlinkstuff(path,'','','REMOVE') /return
+/function
+
+
+function startlinkstuff(path,var,cookie,addorremove) locals allowlist,f,x do
+ if left(path,1)<>'/' then path=dirname(page)+'/'+path /if
+ if not(isfile(path)) then return "ERROR: Invalid path to startlink file" /return /if
+ copy file=allow.conf ts="," to allowlist /copy
+ f='ERROR'
+ for name=allowlist rownum=x do
+  if allowlist[1,x]=path then f=x /if
+ /for
+ if addorremove='ADD' then
+  if f<>'ERROR' then allowlist=delrow(allowlist,f) /if
+  x='ERROR'
+  x[1]=path
+  x[2]=var
+  x[3]=cookie
+  allowlist=append(allowlist,x)
+  copy allowlist to file=allow.conf ts="," /copy
+ elif addorremove='REMOVE' then
+  if f<>'ERROR' then
+   if allowlist[2,f]='' then
+    allowlist=delrow(allowlist,f)
+    copy allowlist to file=allow.conf ts="," /copy
+   else
+    return 'ERROR: REMOVE NOT ALLOWED WHEN VARIABLES ARE INVOLVED. USE CONTROL PANEL INSTEAD' /return
+   /if
+  /if
+ /if
+/function
+
+
+function DLLhash(text) locals thevalue,vlen,jump,a,x,thea do
+ text=text+reverse(text)
+ tlen=length(text)
+ thevalue=0
+ for name=x value=1 to tlen do
+  thevalue=thevalue+(getascii(middle(text,x,x))*mod(x,8))
+ /for
+ vlen=length('x'+thevalue)-1
+ jump=floor(tlen/vlen)
+ a=''
+ for name=x value=0 to vlen do
+  a=a+middle(text,(x*jump)+1,(x*jump)+1)
+ /for
+ thea=0
+ for name=x value=1 to length(a) do
+  thea=thea+(getascii(middle(a,x,x))*mod(x,8))
+ /for
+ return thea+'x'+thevalue /return
+/function
+
+
+
+
+
+function DLLaliascommand(cmd) locals cmd1,cmd2,x,alias do
+ copy file="/system/clearimage/system_alias.csv" ts="," to alias /copy
+ cmd1=split(cmd,' ')
+ cmd2=cmd
+ for name=alias rowname=x do
+
+  if x[1]='git' and cmd1[1,1]='git' then
+   if left(cmd,8)='git init' then
+    cmd2=replace(cmd,x[1],x[2]+' --git-dir='+replaceall(htmlos.conf.HTMLOSPrivate+'/'+destination,'//','/')+'.git')
+   else
+    cmd2=replace(cmd,x[1],x[2]+' --work-tree='+replaceall(replaceall(htmlos.conf.HTMLOSPrivate+'/'+destination,'//','/'),'//','/')+' --git-dir='+replaceall(replaceall(htmlos.conf.HTMLOSPrivate+'/'+destination+'/.git/','//','/'),'//','/'))
+   /if
+  else
+   if x[1]=cmd1[1,1] then cmd2=replace(cmd,x[1],x[2]) /if
+  /if
+
+ /for
+ cmd2=replaceall(cmd2,'[public]',htmlos.conf.DocumentPath)
+ cmd2=replaceall(cmd2,'[private]',htmlos.conf.HTMLOSPrivate+'/')
+ if count(cmd2,'[script]')>0 then
+  cmd2=replaceall(cmd2,'[script]',htmlos.conf.HTMLOSInstallDir)
+ /if
+ cmd2=replaceall(cmd2,'[system]',htmlos.conf.SystemDirectory)
+ return cmd2 /return
+/function
+
+
+
+function DLLgetgetvars(a,allowed) locals x,y,temp do
+ allowed=split(trim(allowed),' ')
+ # Look for GET data, if not found use POST data /#
+ if a="" or a="ERROR" then return 'SET' /return /if
+ if count(a,'?')=1 then a=chopleft(a,'?') a=replace(a,'?','') /if
+ a=ci_deltexttovar(a,'&','=')
+ for name=a rownum=x do
+  a[3,x]='NOT ALLOWED'
+  for name=allowed rowname=y do
+   a[1,x]=replaceall(a[1,x],'+','%20')
+   a[1,x]=unpostprep(a[1,x])
+   a[2,x]=replaceall(a[2,x],'+','%20')
+   a[2,x]=unpostprep(a[2,x])
+   if a[1,x]=y[1] then
+    temp=indirectionset(a[1,x],a[2,x])
+    a[3,x]='SET'
+   /if
+  /for
+ /for
+ return a /return
+/function
+
+
+
+
+function DLLajax_setvars(allowed) locals x,y,a,temp do
+ allowed=split(trim(allowed),' ')
+ # Look for GET data, if not found use POST data /#
+ a=getenv('QUERY_STRING')
+ if a="ERROR" or a='' then a=sysstdin else if sysstdin<>'ERROR' and sysstdin<>'' then a=a+'&'+sysstdin /if /if
+ if a="" or a="ERROR" then return 'SET' /return /if
+ a=ci_deltexttovar(a,'&','=')
+ for name=a rownum=x do
+  a[3,x]='NOT ALLOWED'
+  for name=allowed rowname=y do
+   a[1,x]=unpostprep(a[1,x])
+   a[2,x]=unpostprep(a[2,x])
+   if a[1,x]=y[1] then
+    temp=indirectionset(a[1,x],a[2,x])
+    a[3,x]='SET'
+   /if
+  /for
+ /for
+ return a /return
+/function
+
+
+
+
+
+
+function DLLdatetime(pdDate)
+  # Returns a date as YYMMDDHHMMSS so that proper "<", ">", "=" comparisons can be made /#
+  locals lcRetVal, lcYear, lcMonth, lcDay, lchhmmss
+  do
+    if ISBLANK(pdDate) or ISERROR(pdDate) or isdate(left(pdDate,16))='FALSE' then
+      lcRetVal = ""
+    else
+      lcYear   = right(""+GETYEAR(pdDate),2)
+      lcMonth  = right(replace("00X"+GETMONTH(pdDate,"number"),"X",""),2)
+      lcDay    = right(replace("00X"+GETDAY(pdDate,"long"),"X",""),2)
+      if length(pdDate)>12 then
+       lchhmmss=left(replaceall(middle(pdDate,12,length(pdDate))+'000000xx',':',''),6)
+      else
+       lchhmmss='000000'
+      /if
+      lcRetVal = CONCAT(lcYear, CONCAT(lcMonth,lcDay))
+      lcRetVal = CONCAT(lcRetVal,lcHHMMSS)
+    /if
+  RETURN lcRetVal /RETURN
+/FUNCTION
+
+
+
+
+
+
+function DLLdate(pdDate)
+  # Returns a date as YYYYMMDD so that proper "<", ">", "=" comparisons can be made /#
+  locals lcRetVal, lcYear, lcMonth, lcDay
+  do
+    if ISBLANK(pdDate) or ISERROR(pdDate) or isdate(pdDate)='FALSE' then
+      lcRetVal = ""
+    else
+      lcYear   = ""+GETYEAR(pdDate)
+      lcMonth  = right(replace("00X"+GETMONTH(pdDate,"number"),"X",""),2)
+      lcDay    = right(replace("00X"+GETDAY(pdDate,"long"),"X",""),2)
+      lcRetVal = CONCAT(lcYear, CONCAT(lcMonth,lcDay)) * 1
+    /if
+  RETURN lcRetVal /RETURN
+/FUNCTION
+
+
+
+
+
+function DLLci_tableVSclean(tab) locals a,b,c do
+ # VS - View Source /#
+ a='<style>.ci_table td {background-color:#A5C5F3; border:1px solid #1DB0ED; padding:5px; font-family: Sans-Serif;}</style><table cellpadding="0" class="ci_table">'
+ for name=tab rowname=b do
+  a=a+'<tr>'
+  for name=b colname=c do
+   a=a+'<td><div>'+cleansource(c[1])+'</div></td>'
+  /for
+  a=a+'</tr>'
+ /for
+ a=a+'</table>'
+ return a /return
+/function
+
+
+
+
+
+function DLLci_tableVS(tab) locals a,b,c do
+ # VS - View Source /#
+ a='<style>.ci_table td {background-color:#A5C5F3; border:1px solid #1DB0ED; padding:5px; font-family: Sans-Serif;}</style><table cellpadding="0" class="ci_table">'
+ for name=tab rowname=b do
+  a=a+'<tr>'
+  for name=b colname=c do
+   a=a+'<td><div>'+viewsource(c[1])+'</div></td>'
+  /for
+  a=a+'</tr>'
+ /for
+ a=a+'</table>'
+ return a /return
+/function
+
+
+
+function DLLci_table(tab) locals a,b,c do
+ a='<style>.ci_table td {background-color:#A5C5F3; border:1px solid #1DB0ED; padding:5px; font-family: Sans-Serif;}</style><table cellpadding="0" class="ci_table">'
+ for name=tab rowname=b do
+  a=a+'<tr>'
+  for name=b colname=c do
+   a=a+'<td>'+c[1]+'</td>'
+  /for
+  a=a+'</tr>'
+ /for
+ a=a+'</table>'
+ return a /return
+/function
+
+
+
+
+function DLLci_ttable(tab) locals a,b,c do
+ a=''
+ for name=tab rowname=b do
+  for name=b colname=c do
+   a=a+c[1]+'|'
+  /for
+  a=left(a,length(a)-1)+lf
+ /for
+ return left(a,length(a)-1) /return
+/function
+
+
+
+
+
+function DLLci_cookieread(n) locals env.cookietest,env.temp,env.cookie do
+ env.cookietest=SPLIT( " "+GETENV("HTTP_COOKIE"),";")
+ env.temp=GETCOLBEGIN(env.cookietest,1," "+n+"=")
+ env.temp=CHOPLEFT(env.temp,"=")
+ env.temp=REPLACEALL(env.temp,"=","")
+ env.cookie=TRIM(env.temp)
+ if env.cookie='' then env.cookie='ERROR' /if
+ return env.cookie /return
+/function
+
+
+
+
+
+function DLLci_cookiewrite(n,v,d) do
+ if d='' or d='ERROR' then
+  return HTTPHEADER("Set-Cookie: "+n+"="+v+"; path=/;"+" domain=."+domainname) /return
+ else
+  d=left(getweekday(d,'short'),3)+', '+getday(d)+' '+getmonth(d,'short')+' '+getyear(d,'long')+' 23:59:59 GMT;'
+  return HTTPHEADER("Set-Cookie: "+n+"="+v+"; expires="+d+" path=/;"+" domain=."+domainname) /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLaestivafilename(myfile) locals temp,y,i,x do
+ # This function will take a file name uploaded from a client machine and convert it to conform to the File naming conventions used by Aestiva /#
+ temp=LISTTOCOL(REPLACEALL(myfile,"\","/"),"/")
+ temp=temp[1,ROWS(temp)]
+ y="{{"
+ FOR NAME=i VALUE=1 TO LENGTH(temp) DO
+  x=GETASCII(MIDDLE(temp,i,i))
+  # Allowed Characters (0-9)(a-z)(A-Z).-  everything else is changed to an undescore.  /#
+  # ASCII Chart can be found at http://www.jimprice.com/ascii-0-127.gif                /#
+  if (x>47 and x<58) or (x>64 and x<91) or (x>96 and x<123) or x=46 or x=45 then else x=95 /if
+  y=y+ASCII(x)
+ /FOR
+ y=right(y,length(y)-2)
+ return y /return
+/function
+
+
+
+
+
+function DLLci_texttovar(text) locals a,b,c,x do
+ if left(text,1)='{' and right(text,1)='}' then return ci_deltexttovar(middle(text,2,length(text)-1),lf,',') /return /if
+ text=split(text,'|')
+ a='ERROR'
+ for name=text rowname=b do
+  b=listtorow(b,',')
+  for name=x value=1 to cols(b) do
+   b[x,1]=replaceall(b[x,1],'{COMMA}',',')
+   b[x,1]=replaceall(b[x,1],'{PIPE}','|')
+  /for
+  if a='ERROR' then a=b else a=append(a,b) /if
+ /for
+ return a /return
+/function
+
+
+
+function DLLci_vartotext(var) locals temp,a,b,text,x,temp1 do
+ if rows(var)=1 and cols(var)=1 then return var /return /if
+ text=''
+ temp1=rows(var)
+ for name=var rownum=b do
+  x=getrow(var,b) temp=cols(x)
+  for name=x colnum=a do
+   if a=temp then
+    text=text+var[a,b]
+   else
+    text=text+var[a,b]+','
+   /if
+  /for
+  if b<>temp1 then text=text+lf /if
+ /for
+ return '{'+text+'}' /return
+/function
+
+
+
+
+
+
+
+function DLLci_deltexttovar(text,rw,cl) locals a,b,c,x do
+ text=split(text,rw)
+ a='ERROR'
+ for name=text rowname=b do
+  b=listtorow(b,cl)
+  a=appends(a,b)
+ /for
+ return a /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLci_hextodec(var) do
+ if isinteger(var) and var>=0 and var<=9 then return var /return /if
+ if var="A" then return 10 /return /if
+ if var="B" then return 11 /return /if
+ if var="C" then return 12 /return /if
+ if var="D" then return 13 /return /if
+ if var="E" then return 14 /return /if
+ if var="F" then return 15 /return /if
+ # ERROR /#
+ return 256 /return
+/function
+
+
+
+
+
+
+function DLLci_dectohex(n) locals o do
+ o = '_'
+ if n > 16 then
+  o = ci_dectohex( FLOOR(n/16) ) + '_' + ci_dectohex( REMAINDER(n,16) )
+ ELSE
+  if n > 9 then o = o + ascii(65 + (n-10) ) else o = n /if
+ /if
+ return replaceall(o,'_','') /return
+/function
+
+
+
+
+
+function DLLunpostprep(v) locals x,y,t,a do
+ x=split(v,'%')
+ t='ERROR'
+ for name=x rowname=y do
+  if t<>'ERROR' then
+   a=y[1]
+   t=concat(t,ascii(ci_hextodec(middle(a,1,1))*16+ci_hextodec(middle(a,2,2)))+right(a,length(a)-2))
+  else
+   t=y[1]
+  /if
+ /for
+ return t /return
+/function

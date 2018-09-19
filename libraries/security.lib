@@ -1,0 +1,241 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+function DLLci_sysmvcp(s,d,mvcp) locals x,b,c,e,m,temp,temp1 do
+ x=ci_getfid(s)
+ sysrm(x[6])
+ sysrm(x[7])
+
+ x=ci_getfid(d)
+ sysrm(x[6])
+ sysrm(x[7])
+
+ if isfile(s) then
+  m=''
+  b=ci_extract(s)
+  c=ci_extract(d)
+  e=securityinfo(s)
+  if e<>'ERROR' then
+   e[1]=c[2]+c[4]
+   e[7]=c[5]
+   if mvcp='mv' then
+    e[6]='MOVE'
+    e=modifysecurityinfo(s,e)
+    m=m+'Security Moved '+ci_table(e)
+   else
+    e[6]='COPY'
+    e=modifysecurityinfo(s,e)
+    m=m+'Security Copied '+ci_table(e)
+   /if
+  /if
+  a=fileinfo(s)
+  if mvcp='mv' then temp=sysmv(s,d) else temp=syscp(s,d) /if
+  m=m+'File Moved '+ci_table(temp)
+  if a[5]='PUBLIC' then temp=sysfixpublic(d) else temp=sysfixprivate(d) /if
+  if isfile(b[1]+b[2]+'.scram') then
+   if mvcp='mv' then
+    temp=sysmv(b[1]+b[2]+'.scram',c[1]+c[2]+'.scram')
+   else
+    temp=syscp(b[1]+b[2]+'.scram',c[1]+c[2]+'.scram')
+   /if
+   m=m+'Shadow File Moved '+ci_table(temp)
+   if a[5]='PUBLIC' then temp1=sysfixpublic(c[1]+c[2]+'.scram') else temp1=sysfixprivate(c[1]+c[2]+'.scram') /if
+  /if
+  return temp /return
+ else
+  return "ERROR: Source File doesn't Exist ("+s+")" /return
+ /if
+/function
+
+
+
+
+
+function DLLremovesecurityinfo(f) locals a,b,n,p,temp,t do
+ if right(f,5)='.html' or right(f,4)='.htm' or right(f,3)='.db' then
+  if left(f,1)<>'/' then f=dirname(page)+f /if
+  f=replaceall(f,'//','/')
+  n=replace(reverse(chopright(reverse(f),'/')),'/','')
+  p=reverse(chopleft(reverse(f),'/'))
+  a=dbsearch('/apps/imageservices/security/clear_files','CLEAR_PATHFILE="'+f+'"',1,1)
+  if dbresults[5,1]=0 then
+
+  else
+   for name=a rowname=x do
+    temp=dbdelete('/apps/imageservices/security/clear_files',x[1])
+   /for
+  /if
+ else
+  a='ERROR'
+ /if
+ return a /return
+/function
+
+
+
+
+
+function DLLsecurityinfo(f) locals a,b,n,p,temp,t,tmp do
+ # Security is only for html files and databases /#
+ if right(f,5)='.html' or right(f,4)='.htm' or right(f,3)='.db' then
+  if left(f,1)<>'/' then f=dirname(page)+f /if
+  f=replaceall(f,'//','/')
+  n=replace(reverse(chopright(reverse(f),'/')),'/','')
+  p=reverse(chopleft(reverse(f),'/'))
+  a=dbsearch('/apps/imageservices/security/clear_files','CLEAR_PATHFILE="'+f+'"',1,1)
+  if dbresults[5,1]=0 then
+   a='ERROR'
+   # If the file was previously protected unprotect it as it has no db record /#
+   if clear_user='ROOT' then
+    b=ci_extract(f)
+    if isfile(b[1]+b[2]+'.scram') then
+     t=sysmv(b[1]+b[2]+'.scram',f)
+     t=sysfixprivate(f)
+    /if
+    # Also check to see if it has code at top .... 
+    ADD CODE HERE /#
+   /if
+  else
+   a=gettable(a,2,cols(a),1,rows(a))
+   if clear_user='ROOT' then
+    if isscramble(a[7])='TRUE' then
+     # I have a secured file that is also scrambled, need to secure it by moving it /#
+     b=ci_extract(f)
+     t=syscp(f,b[1]+b[2]+'.scram')
+     t=sysfixprivate(b[1]+b[2]+'.scram')
+     t='<<expand file="/apps/imageservices/security/gotoscramble.lib" /expand>>'
+     copy t to file=f /copy
+    else
+     copy file=a[7] to tmp /copy
+     if tmp='<<expand file="/apps/imageservices/security/gotoscramble.lib" /expand>>' or left(tmp,58)=^<<expand file="/apps/imageservices/security/clearance.lib" /expand^ then
+      # Were good no changes needed /#
+     else
+      tmp=^<<expand file="/apps/imageservices/security/clearance.lib" /expand>>^+lf+tmp
+      copy tmp to file=a[7] /copy
+     /if
+    /if
+   /if
+  /if
+ else
+  a='ERROR'
+ /if
+ return a /return
+/function
+
+
+
+
+
+#
+ securityinfo('path/to/file') - This will return
+  1 - CLEAR_FILE           filename
+  2 - CLEAR_FILESIZE       filesize
+  3 - CLEAR_FILEMODIFIED   modified date
+  4 - CLEAR_FILETYPE       filetype (FILE | DIR)
+  5 - CLEAR_FILEAREA       filearea (PUBLIC | PRIVATE | MIRROR)
+  6 - CLEAR_PATH           pathtofile
+  7 - CLEAR_PATHFILE       fullpath
+  8 - CLEAR_EDITGROUP      Must belong to this group to edit/delete this file
+  9 - CLEAR_RUNGROUP       Must belong to this group to execute this file
+ 10 - CLEAR_INSTARTMENU    Y|N - Determines if anyone can run this file
+ 11 - CLEAR_PUBLICRULE     For Databases only Critera to be applied to public Db Reads and Writes 
+ 12 - CLEAR_GROUPRULE      For Databases only Critera to be applied to group  Db Reads and Writes
+ modifysecurityinfo('path/to/file',(either text or an array like above))
+/#
+
+
+
+
+
+function DLLmodifysecurityinfo(f,t) locals
+  a,b,c,d,n,p,q,temp,r,
+  CLEAR_FILE,
+  CLEAR_FILESIZE,
+  CLEAR_FILEMODIFIED,
+  CLEAR_FILETYPE,
+  CLEAR_FILEAREA,
+  CLEAR_PATH,
+  CLEAR_PATHFILE,
+  CLEAR_EDITGROUP,
+  CLEAR_RUNGROUP,
+  CLEAR_INSTARTMENU,
+  CLEAR_PUBLICRULE,
+  CLEAR_GROUPRULE do
+ # This function will take t as a securityinfo() formatted table or as a name/value string like: name1="value" name2="value2" /#
+ if left(f,1)<>'/' then f=dirname(page)+f /if
+ f=replaceall(f,'//','/')
+ n=replace(reverse(chopright(reverse(f),'/')),'/','')
+ p=reverse(chopleft(reverse(f),'/'))
+ a=dbsearch('/apps/imageservices/security/clear_files','CLEAR_PATHFILE="'+f+'"',1,1)
+ R=a[1,1]
+ a=gettable(a,2,cols(a),1,rows(a))
+ if dbresults[5,1]=0 then
+  q='NONE'
+  a=fileinfo(f)
+  a[1,1]=n
+  a[6,1]=p
+  a[7,1]=f
+  a[8,1]=''
+  a[9,1]=''
+  a[10,1]=''
+  a[11,1]=''
+  a[12,1]=''
+ /if
+ # Ok "a" contains the db or fileinfo data now we decide what to do based on t /#
+ if cols(t)>1 then
+  if (t[1,1]=a[1,1] and t[6,1]=a[6,1] and t[7,1]=a[7,1]) or t[6,1]='MOVE' or t[6,1]='COPY' then
+   if t[6,1]='MOVE' then t[6,1]=a[6,1] /if
+   if t[6,1]='COPY' then t[6,1]=a[6,1] q="NONE" /if
+   CLEAR_FILE=t[1,1]
+   CLEAR_FILESIZE=t[2,1]
+   CLEAR_FILEMODIFIED=t[3,1]
+   CLEAR_FILETYPE=t[4,1]
+   CLEAR_FILEAREA=t[5,1]
+   CLEAR_PATH=t[6,1]
+   CLEAR_PATHFILE=t[7,1]
+   CLEAR_EDITGROUP=t[8,1]
+   CLEAR_RUNGROUP=t[9,1]
+   CLEAR_INSTARTMENU=t[10,1]
+   CLEAR_PUBLICRULE=t[11,1]
+   CLEAR_GROUPRULE=t[12,1]
+  else
+   return "ERROR: Malformed Input"+ci_table(f)+ci_table(t) /return
+  /if
+ else
+  CLEAR_FILE=a[1,1]
+  CLEAR_FILESIZE=a[2,1]
+  CLEAR_FILEMODIFIED=a[3,1]
+  CLEAR_FILETYPE=a[4,1]
+  CLEAR_FILEAREA=a[5,1]
+  CLEAR_PATH=a[6,1]
+  CLEAR_PATHFILE=a[7,1]
+  CLEAR_EDITGROUP=a[8,1]
+  CLEAR_RUNGROUP=a[9,1]
+  CLEAR_INSTARTMENU=a[10,1]
+  CLEAR_PUBLICRULE=a[11,1]
+  CLEAR_GROUPRULE=a[12,1]
+  a=split(t,' ')
+  t=''
+  for name=a rowname=x do
+   b=split(x,"=")
+   c=b[1,1]
+   d=b[1,2]
+   if left(d,1)='"' and right(d,1)='"' then d=middle(d,2,length(d)-1) /if
+   if left(d,1)="'" and right(d,1)="'" then d=middle(d,2,length(d)-1) /if
+   @c=d
+  /for
+ /if
+ if q='NONE' then
+  temp=dbadd('/apps/imageservices/security/clear_files')
+ else
+  temp=dbedit('/apps/imageservices/security/clear_files',R)
+ /if
+ return temp /return
+/function

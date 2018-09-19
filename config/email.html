@@ -1,0 +1,85 @@
+<<
+expand file="/system/clearimage/DLL.lib" /expand
+>>
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8">
+  <title></title>
+ </head>
+ <body>
+  <a href="<<page>>">RELOAD</a><hr>
+  <h1>Email Library Tester</h1>
+  <p>This page is designed to send 2 emails, one using the standard MAIL ... /MAIL tags and another using the email library quickmail tag. They should perform identically. The reason for a separate library is so that developers can have complete control over the email they send out.</p>
+  <form action="doit" accept-charset="utf-8">
+   <input type="text" name="emailto">
+   <input type="submit" name="mybutton" value="Send Test Email">
+  </form>
+  <<showwith('<pre>',message,'</pre>')>> 
+  <hr>
+  <<showwith('<pre>',message2,'</pre>')>> 
+  <<message='ERROR' message2='ERROR'>>
+  <hr>
+  <h3>Mail Settings</h3>
+  <p>Use Aestiva Control Panel to modify.</p>
+  <<
+   copy file="/system/conf/netmail.conf" ts="," to mailprefs /copy
+   display ci_table(mailprefs) /display
+  >>
+
+<hr>
+
+<<
+
+
+IF ISFUNCTION('UTCOFFSET') THEN DISPLAY ^'NOW' cannot be used.  It is already a HTML/OS tag.^ /DISPLAY /IF
+
+>>
+ </body>
+</html>
+<<overlay doit
+  $(scope('toline,fromline,dateline,theusername,MailServerIn,FromName,MailServerOut,AddHeader,AddDateLine,AddFromLine,AddToLine,BusyWait,AUTHMETHOD,theUSERNAME,thePASSWORD,mailprefs,x',^
+   copy file="/system/conf/netmail.conf" ts="," to mailprefs /copy
+   for name=mailprefs rowname=x do
+    if x[1]='MailServerIn'  then  MailServerIn=x[2] /if
+    if x[1]='FromName'      then      FromName=x[2] /if
+    if x[1]='MailServerOut' then MailServerOut=x[2] /if
+    if x[1]='AddHeader'     then     AddHeader=x[2] /if
+    if x[1]='HeaderLine'    then    HeaderLine=x[2] /if
+    if x[1]='AddDateLine'   then   AddDateLine=x[2] /if
+    if x[1]='AddFromLine'   then   AddFromLine=x[2] /if
+    if x[1]='AddToLine'     then     AddToLine=x[2] /if
+    if x[1]='BusyWait'      then      BusyWait=x[2] /if
+    if x[1]='AUTHMETHOD'    then    AUTHMETHOD=x[2] /if
+    if x[1]='USERNAME'      then   theUSERNAME=x[2] /if
+    if x[1]='PASSWORD'      then   thePASSWORD=x[2] /if
+   /for
+   if AddHeader='N'   then headerLine='' else                                                       /if
+   if AddDateLine='N' then dateline=''   else dateline=moment(nows(),'ddd, DD MMM YYYY HH:mm:ss Z') /if
+   if AddFromLine='N' then fromline=''   else fromline=FromName                                     /if
+   if AddToLine='N'   then toline=''     else   toline=emailto                                      /if
+   if HTMLOSSUBUSERNAME='' then theusername='admin' else theusername=HTMLOSSUBUSERNAME /if
+   email.body='Yippee!,'+lf+lf+
+              'If you are reading this message then your email works!'+lf+
+              'Be sure to check your "from" and "reply" addresses.'+lf+lf+
+              '-- Automated Control Panel Mail Test'+LF+LF
+   message=emailto+lf+lf+
+    quickmail(FromName,emailto,
+     'Subject: Test From '+domainname+cr+lf+
+     showwith('To: '  ,toline  ,cr+lf)+
+     showwith('From: ',fromline,cr+lf)+
+     showwith('Date: ',dateline,cr+lf)+
+     'X-HTMLOSSender-ID: '+theusername+' at '+domainname+cr+lf+
+     showwith('',headerline,cr+lf)+
+     'Content-Type: text/plain'+cr+lf+
+     email.body
+    )
+   MAIL email.body TO address=emailto SUBJECT="Test From "+domainname /MAIL
+   if htmlos.errormessage[1,1] <> "ERROR" then
+    message2 = replaceall(replaceall(viewsource(htmlos.errormessage[1,2]),"[RCV]",lf+"[R] "),"[SND]",lf+"[W] ")
+   else
+     message2=''
+   /if
+  ^))
+  goto page
+>>

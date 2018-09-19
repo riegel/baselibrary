@@ -1,0 +1,98 @@
+function DLLscope(localvars,executablecode) locals r_a_n_d_o_m_dgc6fgtsfdjchftal do
+ r_a_n_d_o_m_dgc6fgtsfdjchftal=random(1000,9999)
+ return 'function scope'+usernum+'_'+r_a_n_d_o_m_dgc6fgtsfdjchftal+'() locals '+localvars+' do'+lf+executablecode+lf+' return "ERROR" /return'+lf+'/function'+lf+'o.0=scope'+usernum+'_'+r_a_n_d_o_m_dgc6fgtsfdjchftal+'()' /return
+/function
+
+
+
+
+
+function DLLcode(path) locals temp do
+ copy file=path to temp /copy
+ if right(path,8)='.overlay' then
+  return middle(temp,3,length(temp)-2) /return
+ else
+  return temp /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+$(replaceall(^
+
+
+
+function set(`n,`v) do return indirectionset(`n,`v) /return /function
+function get(`n) do return indirection(`n) /return /function
+
+
+function DLLindirection(`var) locals `a,`b,`v,`x,`y do
+ if count(`var,"[")>0 then
+  `a=split(replace(left(`var,length(`var)-1),"[",","),",")  # i.e. a[1,1]="cart" a[1,2]="2" a[1,3]="3"   /#
+  `v=`a[1,1] `x=`a[1,2] `y=`a[1,3]
+
+  if `x<>'' and `x<>'ERROR' then if not(isinteger(`x)) then `x=get(`x) /if /if
+  if `y<>'' and `y<>'ERROR' then if not(isinteger(`y)) then `x=get(`y) /if /if
+
+  if isinteger(`x) and isinteger(`y) then
+   `b=@`v
+   return `b[`x,`y] /return
+  elif isinteger(`x) then
+   `b=@`v
+   return `b[`x] /return
+  else
+   return 'ERROR: Bad Index ('+`x+','+`y+')' /return
+  /if
+ else
+  return @`var /return
+ /if
+/function
+
+
+
+
+
+function DLLindirectionset(`var,`val) locals `a,`b,`v,`x,`y do
+ if count(`var,"[")>0 then
+  `a=split(replace(left(var,length(`var)-1),"[",","),",")  # i.e. a[1,1]="cart" a[1,2]="2" a[1,3]="3"   /#
+  `v=`a[1,1] `x=`a[1,2] `y=`a[1,3]
+  if isinteger(`x) and isinteger(`y) then
+   `b=@`v
+   `b[`x,`y]=`val
+   @`v=`b
+  elif isinteger(`x) then
+   `b=@`v
+   `b[`x]=`val
+   @`v=`b
+  else
+   return 'ERROR: Bad Index' /return
+  /if
+ else
+  @`var=`val
+ /if
+ return '' /return
+
+/function
+
+
+^,'`','sdkljdc8_kl_j7_snbku3986dlkh_98y'))
+
+
+
+
+

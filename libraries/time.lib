@@ -1,0 +1,1211 @@
+function DLLnows() do return now+':'+right('XX00'+tagresults[7],2) /return /function
+
+function DLLseconds(u) locals dt,s,a do
+ s='ERROR'
+ if u<>"" and u<>'ERROR' and u<>0 then
+  if left(adddays(u,0),16)=left(u,16) then
+   if middle(u,17,17)=':' then
+    s=right(u,2)
+    u=left(u,16)
+   else
+    s=0
+    u=left(u,16)
+   /if
+  /if
+ /if
+ if s='ERROR' then
+  u=nowUTC() s=tagresults[7]
+ /if
+ s=TIMEBETWEEN('01/01/1970 00:00',u,'minutes')*60+s
+ return s /return
+/function
+
+
+
+function DLLnowUTC() locals u,s,timeconf do
+ copy file="/system/conf/time.conf" ts=',' to timeconf /copy
+ if timeconf[1,1]='ERROR' then timeconf[1,1]=0 /if
+ if timeconf[1,1]=''      then timeconf[1,1]=0 /if
+ u=utcoffset(now)
+ s=left(u,1)
+ u=middle(u,2,3)
+ u=u+0
+ if s='-' then u=u*-1 /if
+ return addminutes(now,(u*-60)-timeconf[1,1]) /return
+/function 
+
+
+
+function UTC_offset_as_minutes(a) locals s,h,m do
+ if a='ERROR' or length(a)<>6 then return 'ERROR' /return /if
+ s=middle(a,1,1) if s='-' then s=-1 else s=1 /if
+ h=middle(a,2,3)*1
+ m=middle(a,5,6)*1
+ return s*(h*60+m) /return
+/function
+
+
+
+
+function DLLTimeZoneToUTC_minutes(timezonename,thedate) locals a,s,h,m do
+ a=TimeZoneToUTC(timezonename,thedate)
+ return UTC_offset_as_minutes(a) /return
+/function
+
+
+function DLLTimeZoneList() do
+ return csvtotable467("Pacific/Midway,-11:00,Midway"+lf+"Pacific/Niue,-11:00,Niue"+lf+"Pacific/Pago_Pago,-11:00,Pago Pago"+lf+"Pacific/Honolulu,-10:00,Hawaii Time"+lf+"Pacific/Rarotonga,-10:00,Rarotonga"+lf+"Pacific/Tahiti,-10:00,Tahiti"+lf+"Pacific/Marquesas,-09:30,Marquesas"+lf+"America/Anchorage,-09:00,Alaska Time"+lf+"Pacific/Gambier,-09:00,Gambier"+lf+"America/Los_Angeles,-08:00,Pacific Time"+lf+"America/Tijuana,-08:00,Pacific Time - Tijuana"+lf+"America/Vancouver,-08:00,Pacific Time - Vancouver"+lf+"America/Whitehorse,-08:00,Pacific Time - Whitehorse"+lf+"Pacific/Pitcairn,-08:00,Pitcairn"+lf+"America/Dawson_Creek,-07:00,Mountain Time - Dawson Creek"+lf+"America/Denver,-07:00,Mountain Time"+lf+"America/Edmonton,-07:00,Mountain Time - Edmonton"+lf+"America/Hermosillo,-07:00,Mountain Time - Hermosillo"+lf+"America/Mazatlan,-07:00,Mountain Time - Chihuahua^, Mazatlan"+lf+"America/Phoenix,-07:00,Mountain Time - Arizona"+lf+"America/Yellowknife,-07:00,Mountain Time - Yellowknife"+lf+"America/Belize,-06:00,Belize"+lf+"America/Chicago,-06:00,Central Time"+lf+"America/Costa_Rica,-06:00,Costa Rica"+lf+"America/El_Salvador,-06:00,El Salvador"+lf+"America/Guatemala,-06:00,Guatemala"+lf+"America/Managua,-06:00,Managua"+lf+"America/Mexico_City,-06:00,Central Time - Mexico City"+lf+"America/Regina,-06:00,Central Time - Regina"+lf+"America/Tegucigalpa,-06:00,Central Time - Tegucigalpa"+lf+"America/Winnipeg,-06:00,Central Time - Winnipeg"+lf+"Pacific/Easter,-06:00,Easter Island"+lf+"Pacific/Galapagos,-06:00,Galapagos"+lf+"America/Bogota,-05:00,Bogota"+lf+"America/Cayman,-05:00,Cayman"+lf+"America/Grand_Turk,-05:00,Grand Turk"+lf+"America/Guayaquil,-05:00,Guayaquil"+lf+"America/Havana,-05:00,Havana"+lf+"America/Iqaluit,-05:00,Eastern Time - Iqaluit"+lf+"America/Jamaica,-05:00,Jamaica"+lf+"America/Lima,-05:00,Lima"+lf+"America/Montreal,-05:00,Eastern Time - Montreal"+lf+"America/Nassau,-05:00,Nassau"+lf+"America/New_York,-05:00,Eastern Time"+lf+"America/Panama,-05:00,Panama"+lf+"America/Port-au-Prince,-05:00,Port-au-Prince"+lf+"America/Rio_Branco,-05:00,Rio Branco"+lf+"America/Toronto,-05:00,Eastern Time - Toronto"+lf+"America/Caracas,-04:30,Caracas"+lf+"America/Antigua,-04:00,Antigua"+lf+"America/Asuncion,-04:00,Asuncion"+lf+"America/Barbados,-04:00,Barbados"+lf+"America/Boa_Vista,-04:00,Boa Vista"+lf+"America/Campo_Grande,-04:00,Campo Grande"+lf+"America/Cuiaba,-04:00,Cuiaba"+lf+"America/Curacao,-04:00,Curacao"+lf+"America/Guyana,-04:00,Guyana"+lf+"America/Halifax,-04:00,Atlantic Time - Halifax"+lf+"America/La_Paz,-04:00,La Paz"+lf+"America/Manaus,-04:00,Manaus"+lf+"America/Martinique,-04:00,Martinique"+lf+"America/Port_of_Spain,-04:00,Port of Spain"+lf+"America/Porto_Velho,-04:00,Porto Velho"+lf+"America/Puerto_Rico,-04:00,Puerto Rico"+lf+"America/Santiago,-04:00,Santiago"+lf+"America/Santo_Domingo,-04:00,Santo Domingo"+lf+"America/Thule,-04:00,Thule"+lf+"Antarctica/Palmer,-04:00,Palmer"+lf+"Atlantic/Bermuda,-04:00,Bermuda"+lf+"America/St_Johns,-03:30,Newfoundland Time - St. Johns"+lf+"America/Araguaina,-03:00,Araguaina"+lf+"America/Argentina/Buenos_Aires,-03:00,Buenos Aires"+lf+"America/Bahia,-03:00,Salvador"+lf+"America/Belem,-03:00,Belem"+lf+"America/Cayenne,-03:00,Cayenne"+lf+"America/Fortaleza,-03:00,Fortaleza"+lf+"America/Godthab,-03:00,Godthab"+lf+"America/Maceio,-03:00,Maceio"+lf+"America/Miquelon,-03:00,Miquelon"+lf+"America/Montevideo,-03:00,Montevideo"+lf+"America/Paramaribo,-03:00,Paramaribo"+lf+"America/Recife,-03:00,Recife"+lf+"America/Sao_Paulo,-03:00,Sao Paulo"+lf+"Antarctica/Rothera,-03:00,Rothera"+lf+"Atlantic/Stanley,-03:00,Stanley"+lf+"America/Noronha,-02:00,Noronha"+lf+"Atlantic/South_Georgia,-02:00,South Georgia"+lf+"America/Scoresbysund,-01:00,Scoresbysund"+lf+"Atlantic/Azores,-01:00,Azores"+lf+"Atlantic/Cape_Verde,-01:00,Cape Verde"+lf+"Africa/Abidjan,+00:00,Abidjan"+lf+"Africa/Accra,+00:00,Accra"+lf+"Africa/Bamako,+00:00,Bamako"+lf+"Africa/Banjul,+00:00,Banjul"+lf+"Africa/Bissau,+00:00,Bissau"+lf+"Africa/Casablanca,+00:00,Casablanca"+lf+"Africa/Conakry,+00:00,Conakry"+lf+"Africa/Dakar,+00:00,Dakar"+lf+"Africa/El_Aaiun,+00:00,El Aaiun"+lf+"Africa/Freetown,+00:00,Freetown"+lf+"Africa/Lome,+00:00,Lome"+lf+"Africa/Monrovia,+00:00,Monrovia"+lf+"Africa/Nouakchott,+00:00,Nouakchott"+lf+"Africa/Ouagadougou,+00:00,Ouagadougou"+lf+"Africa/Sao_Tome,+00:00,Sao Tome"+lf+"America/Danmarkshavn,+00:00,Danmarkshavn"+lf+"Atlantic/Canary,+00:00,Canary Islands"+lf+"Atlantic/Faroe,+00:00,Faeroe"+lf+"Atlantic/Reykjavik,+00:00,Reykjavik"+lf+"Atlantic/St_Helena,+00:00,St Helena"+lf+"Etc/GMT,+00:00,GMT (no daylight saving)"+lf+"Europe/Dublin,+00:00,Dublin"+lf+"Europe/Lisbon,+00:00,Lisbon"+lf+"Europe/London,+00:00,London"+lf+"Africa/Algiers,+01:00,Algiers"+lf+"Africa/Bangui,+01:00,Bangui"+lf+"Africa/Brazzaville,+01:00,Brazzaville"+lf+"Africa/Ceuta,+01:00,Ceuta"+lf+"Africa/Douala,+01:00,Douala"+lf+"Africa/Kinshasa,+01:00,Kinshasa"+lf+"Africa/Lagos,+01:00,Lagos"+lf+"Africa/Libreville,+01:00,Libreville"+lf+"Africa/Luanda,+01:00,Luanda"+lf+"Africa/Malabo,+01:00,Malabo"+lf+"Africa/Ndjamena,+01:00,Ndjamena"+lf+"Africa/Niamey,+01:00,Niamey"+lf+"Africa/Porto-Novo,+01:00,Porto-Novo"+lf+"Africa/Tunis,+01:00,Tunis"+lf+"Africa/Windhoek,+01:00,Windhoek"+lf+"Europe/Amsterdam,+01:00,Amsterdam"+lf+"Europe/Andorra,+01:00,Andorra"+lf+"Europe/Belgrade,+01:00,Central European Time - Belgrade"+lf+"Europe/Berlin,+01:00,Berlin"+lf+"Europe/Brussels,+01:00,Brussels"+lf+"Europe/Budapest,+01:00,Budapest"+lf+"Europe/Copenhagen,+01:00,Copenhagen"+lf+"Europe/Gibraltar,+01:00,Gibraltar"+lf+"Europe/Luxembourg,+01:00,Luxembourg"+lf+"Europe/Madrid,+01:00,Madrid"+lf+"Europe/Malta,+01:00,Malta"+lf+"Europe/Monaco,+01:00,Monaco"+lf+"Europe/Oslo,+01:00,Oslo"+lf+"Europe/Paris,+01:00,Paris"+lf+"Europe/Prague,+01:00,Central European Time - Prague"+lf+"Europe/Rome,+01:00,Rome"+lf+"Europe/Stockholm,+01:00,Stockholm"+lf+"Europe/Tirane,+01:00,Tirane"+lf+"Europe/Vienna,+01:00,Vienna"+lf+"Europe/Warsaw,+01:00,Warsaw"+lf+"Europe/Zurich,+01:00,Zurich"+lf+"Africa/Blantyre,+02:00,Blantyre"+lf+"Africa/Bujumbura,+02:00,Bujumbura"+lf+"Africa/Cairo,+02:00,Cairo"+lf+"Africa/Gaborone,+02:00,Gaborone"+lf+"Africa/Harare,+02:00,Harare"+lf+"Africa/Johannesburg,+02:00,Johannesburg"+lf+"Africa/Kigali,+02:00,Kigali"+lf+"Africa/Lubumbashi,+02:00,Lubumbashi"+lf+"Africa/Lusaka,+02:00,Lusaka"+lf+"Africa/Maputo,+02:00,Maputo"+lf+"Africa/Maseru,+02:00,Maseru"+lf+"Africa/Mbabane,+02:00,Mbabane"+lf+"Africa/Tripoli,+02:00,Tripoli"+lf+"Asia/Amman,+02:00,Amman"+lf+"Asia/Beirut,+02:00,Beirut"+lf+"Asia/Damascus,+02:00,Damascus"+lf+"Asia/Gaza,+02:00,Gaza"+lf+"Asia/Jerusalem,+02:00,Jerusalem"+lf+"Asia/Nicosia,+02:00,Nicosia"+lf+"Europe/Athens,+02:00,Athens"+lf+"Europe/Bucharest,+02:00,Bucharest"+lf+"Europe/Chisinau,+02:00,Chisinau"+lf+"Europe/Helsinki,+02:00,Helsinki"+lf+"Europe/Istanbul,+02:00,Istanbul"+lf+"Europe/Kiev,+02:00,Kiev"+lf+"Europe/Riga,+02:00,Riga"+lf+"Europe/Sofia,+02:00,Sofia"+lf+"Europe/Tallinn,+02:00,Tallinn"+lf+"Europe/Vilnius,+02:00,Vilnius"+lf+"Africa/Addis_Ababa,+03:00,Addis Ababa"+lf+"Africa/Asmara,+03:00,Asmera"+lf+"Africa/Dar_es_Salaam,+03:00,Dar es Salaam"+lf+"Africa/Djibouti,+03:00,Djibouti"+lf+"Africa/Kampala,+03:00,Kampala"+lf+"Africa/Khartoum,+03:00,Khartoum"+lf+"Africa/Mogadishu,+03:00,Mogadishu"+lf+"Africa/Nairobi,+03:00,Nairobi"+lf+"Antarctica/Syowa,+03:00,Syowa"+lf+"Asia/Aden,+03:00,Aden"+lf+"Asia/Baghdad,+03:00,Baghdad"+lf+"Asia/Bahrain,+03:00,Bahrain"+lf+"Asia/Kuwait,+03:00,Kuwait"+lf+"Asia/Qatar,+03:00,Qatar"+lf+"Asia/Riyadh,+03:00,Riyadh"+lf+"Europe/Kaliningrad,+03:00,Moscow-01 - Kaliningrad"+lf+"Europe/Minsk,+03:00,Minsk"+lf+"Indian/Antananarivo,+03:00,Antananarivo"+lf+"Indian/Comoro,+03:00,Comoro"+lf+"Indian/Mayotte,+03:00,Mayotte"+lf+"Asia/Tehran,+03:30,Tehran"+lf+"Asia/Baku,+04:00,Baku"+lf+"Asia/Dubai,+04:00,Dubai"+lf+"Asia/Muscat,+04:00,Muscat"+lf+"Asia/Tbilisi,+04:00,Tbilisi"+lf+"Asia/Yerevan,+04:00,Yerevan"+lf+"Europe/Moscow,+04:00,Moscow+00"+lf+"Europe/Samara,+04:00,Moscow+00 - Samara"+lf+"Indian/Mahe,+04:00,Mahe"+lf+"Indian/Mauritius,+04:00,Mauritius"+lf+"Indian/Reunion,+04:00,Reunion"+lf+"Asia/Kabul,+04:30,Kabul"+lf+"Antarctica/Mawson,+05:00,Mawson"+lf+"Asia/Aqtau,+05:00,Aqtau"+lf+"Asia/Aqtobe,+05:00,Aqtobe"+lf+"Asia/Ashgabat,+05:00,Ashgabat"+lf+"Asia/Dushanbe,+05:00,Dushanbe"+lf+"Asia/Karachi,+05:00,Karachi"+lf+"Asia/Tashkent,+05:00,Tashkent"+lf+"Indian/Kerguelen,+05:00,Kerguelen"+lf+"Indian/Maldives,+05:00,Maldives"+lf+"Asia/Calcutta,+05:30,India Standard Time"+lf+"Asia/Colombo,+05:30,Colombo"+lf+"Asia/Katmandu,+05:45,Katmandu"+lf+"Antarctica/Vostok,+06:00,Vostok"+lf+"Asia/Almaty,+06:00,Almaty"+lf+"Asia/Bishkek,+06:00,Bishkek"+lf+"Asia/Dhaka,+06:00,Dhaka"+lf+"Asia/Thimphu,+06:00,Thimphu"+lf+"Asia/Yekaterinburg,+06:00,Moscow+02 - Yekaterinburg"+lf+"Indian/Chagos,+06:00,Chagos"+lf+"Asia/Rangoon,+06:30,Rangoon"+lf+"Indian/Cocos,+06:30,Cocos"+lf+"Antarctica/Davis,+07:00,Davis"+lf+"Asia/Bangkok,+07:00,Bangkok"+lf+"Asia/Hovd,+07:00,Hovd"+lf+"Asia/Jakarta,+07:00,Jakarta"+lf+"Asia/Omsk,+07:00,Moscow+03 - Omsk^, Novosibirsk"+lf+"Asia/Phnom_Penh,+07:00,Phnom Penh"+lf+"Asia/Saigon,+07:00,Hanoi"+lf+"Asia/Vientiane,+07:00,Vientiane"+lf+"Indian/Christmas,+07:00,Christmas"+lf+"Antarctica/Casey,+08:00,Casey"+lf+"Asia/Brunei,+08:00,Brunei"+lf+"Asia/Choibalsan,+08:00,Choibalsan"+lf+"Asia/Hong_Kong,+08:00,Hong Kong"+lf+"Asia/Krasnoyarsk,+08:00,Moscow+04 - Krasnoyarsk"+lf+"Asia/Kuala_Lumpur,+08:00,Kuala Lumpur"+lf+"Asia/Macau,+08:00,Macau"+lf+"Asia/Makassar,+08:00,Makassar"+lf+"Asia/Manila,+08:00,Manila"+lf+"Asia/Shanghai,+08:00,China Time - Beijing"+lf+"Asia/Singapore,+08:00,Singapore"+lf+"Asia/Taipei,+08:00,Taipei"+lf+"Asia/Ulaanbaatar,+08:00,Ulaanbaatar"+lf+"Australia/Perth,+08:00,Western Time - Perth"+lf+"Asia/Dili,+09:00,Dili"+lf+"Asia/Irkutsk,+09:00,Moscow+05 - Irkutsk"+lf+"Asia/Jayapura,+09:00,Jayapura"+lf+"Asia/Pyongyang,+09:00,Pyongyang"+lf+"Asia/Seoul,+09:00,Seoul"+lf+"Asia/Tokyo,+09:00,Tokyo"+lf+"Pacific/Palau,+09:00,Palau"+lf+"Australia/Adelaide,+09:30,Central Time - Adelaide"+lf+"Australia/Darwin,+09:30,Central Time - Darwin"+lf+"Antarctica/DumontDUrville,+10:00,Dumont D'Urville"+lf+"Asia/Yakutsk,+10:00,Moscow+06 - Yakutsk"+lf+"Australia/Brisbane,+10:00,Eastern Time - Brisbane"+lf+"Australia/Hobart,+10:00,Eastern Time - Hobart"+lf+"Australia/Sydney,+10:00,Eastern Time - Melbourne^, Sydney"+lf+"Pacific/Chuuk,+10:00,Truk"+lf+"Pacific/Guam,+10:00,Guam"+lf+"Pacific/Port_Moresby,+10:00,Port Moresby"+lf+"Pacific/Saipan,+10:00,Saipan"+lf+"Asia/Vladivostok,+11:00,Moscow+07 - Yuzhno-Sakhalinsk"+lf+"Pacific/Efate,+11:00,Efate"+lf+"Pacific/Guadalcanal,+11:00,Guadalcanal"+lf+"Pacific/Kosrae,+11:00,Kosrae"+lf+"Pacific/Noumea,+11:00,Noumea"+lf+"Pacific/Pohnpei,+11:00,Ponape"+lf+"Pacific/Norfolk,+11:30,Norfolk"+lf+"Asia/Kamchatka,+12:00,Moscow+08 - Petropavlovsk-Kamchatskiy"+lf+"Asia/Magadan,+12:00,Moscow+08 - Magadan"+lf+"Pacific/Auckland,+12:00,Auckland"+lf+"Pacific/Fiji,+12:00,Fiji"+lf+"Pacific/Funafuti,+12:00,Funafuti"+lf+"Pacific/Kwajalein,+12:00,Kwajalein"+lf+"Pacific/Majuro,+12:00,Majuro"+lf+"Pacific/Nauru,+12:00,Nauru"+lf+"Pacific/Tarawa,+12:00,Tarawa"+lf+"Pacific/Wake,+12:00,Wake"+lf+"Pacific/Wallis,+12:00,Wallis"+lf+"Pacific/Apia,+13:00,Apia"+lf+"Pacific/Enderbury,+13:00,Enderbury"+lf+"Pacific/Fakaofo,+13:00,Fakaofo"+lf+"Pacific/Tongatapu,+13:00,Tongatapu"+lf+"Pacific/Kiritimati,+14:00,Kiritimati") /return
+/function
+
+
+function DLLTimeZoneToUTC(timezonename,thedate) locals text,t,x,temp do
+ if thedate='' or thedate='ERROR' then
+  return 'ERROR' /return
+ else
+  timezonename=replaceall(timezonename,' ','_')
+  # We ignore the second column and load it from the OS /#
+  t=TimeZoneList()
+
+  datepart=left(thedate,10)
+  timepart=middle(thedate,12,13)
+  if isinteger(timepart) then
+   timepart=right('X00'+timepart+':00',5)
+  else
+   timepart=''
+  /if
+
+  for name=t rowname=x do
+   if timezonename=x[1] or timezonename=x[3] then
+    if timezonename=x[3] then timezonename=x[1] /if
+    temp=trim(syscall('TimeZoneToUTC',^bin/echo 'TZ=":^+timezonename+^" /bin/date --date='"'"'^+datepart+showwith(' ',timepart,'')+^'"'"' +%z' | /bin/sh^))
+    if length(temp)=5 then
+     return middle(temp,1,3)+':'+middle(temp,4,5) /return
+    else
+     return 'ERROR'+showwith(': ',temp,'') /return
+    /if
+   /if
+  /for
+ /if
+ return 'ERROR' /return
+/function
+
+
+
+
+
+
+
+
+
+function DLLUTCtoLocaltime(utc,zone) do
+ return addminutes(utc,TimeZoneToUTC_minutes(zone,utc)) /return
+/function 
+
+
+function DLLLocaltimetoUTC(localtime,zone) do
+ return addminutes(localtime,-1*TimeZoneToUTC_minutes(zone,localtime)) /return
+/function 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function getutc(d) do
+ if isfunction('UTCOFFSET') then return UTCOFFSET(d) /return else return '+000' /return /if
+/function
+
+
+function moment_escape(text) do
+ # Escape all moment Chars
+ #
+ # A D E G H L M Q S W X Y Z
+ # a d e g h m o s w
+/#
+
+ text=replaceallX(text,'A','&#65;')
+ text=replaceallX(text,'D','&#68;')
+ text=replaceallX(text,'E','&#69;')
+ text=replaceallX(text,'G','&#71;')
+ text=replaceallX(text,'H','&#72;')
+ text=replaceallX(text,'L','&#76;')
+ text=replaceallX(text,'M','&#77;')
+ text=replaceallX(text,'Q','&#81;')
+ text=replaceallX(text,'S','&#83;')
+ text=replaceallX(text,'W','&#87;')
+ text=replaceallX(text,'X','&#88;')
+ text=replaceallX(text,'Y','&#89;')
+ text=replaceallX(text,'Z','&#90;')
+
+ text=replaceallX(text,'a','&#97;')
+ text=replaceallX(text,'d','&#100;')
+ text=replaceallX(text,'e','&#101;')
+ text=replaceallX(text,'g','&#103;')
+ text=replaceallX(text,'h','&#104;')
+ text=replaceallX(text,'m','&#109;')
+ text=replaceallX(text,'o','&#111;')
+ text=replaceallX(text,'s','&#115;')
+ text=replaceallX(text,'w','&#119;')
+
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+function moment_unescape(text) do
+ # Un-Escape all moment Chars
+ #
+ # A D E G H L M Q S W X Y Z
+ # a d e g h m o s w
+/#
+
+ text=replaceall(text,'&#65;','A')
+ text=replaceall(text,'&#68;','D')
+ text=replaceall(text,'&#69;','E')
+ text=replaceall(text,'&#71;','G')
+ text=replaceall(text,'&#72;','H')
+ text=replaceall(text,'&#76;','L')
+ text=replaceall(text,'&#77;','M')
+ text=replaceall(text,'&#81;','Q')
+ text=replaceall(text,'&#83;','S')
+ text=replaceall(text,'&#87;','W')
+ text=replaceall(text,'&#88;','X')
+ text=replaceall(text,'&#89;','Y')
+ text=replaceall(text,'&#90;','Z')
+
+ text=replaceall(text,'&#97;' ,'a')
+ text=replaceall(text,'&#100;','d')
+ text=replaceall(text,'&#101;','e')
+ text=replaceall(text,'&#103;','g')
+ text=replaceall(text,'&#104;','h')
+ text=replaceall(text,'&#109;','m')
+ text=replaceall(text,'&#111;','o')
+ text=replaceall(text,'&#115;','s')
+ text=replaceall(text,'&#119;','w')
+
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+function moment_extract(text,LB,RB) locals a,b,L,R,tag,x,i,found,func,vars,v,string,number,varTable do
+ if count(text,LB)=0 then return text /return /if
+ if count(text,RB)=0 then return text /return /if
+ a=locate(text,LB)
+ b=locate(text,RB)
+ L=left(text,a-1)
+ R=right(text,length(text)-b)
+   if LB='<' then tag=replaceall(replaceall(trim(middle(text,a+1,b-1)), '&lt;'   , '<' ) , '&gt;'   , '>' )
+                  tag=replaceall(replaceall(trim(middle(text,a+1,b-1)), '&#60;'  , '<' ) , '&#62;'  , '>' )
+ elif LB='[' then tag=replaceall(replaceall(trim(middle(text,a+1,b-1)), '&#91;'  , '[' ) , '&#93;'  , ']' )
+ elif LB='{' then tag=replaceall(replaceall(trim(middle(text,a+1,b-1)), '&#123;' , '{' ) , '&#125;' , '}' )
+ elif LB='(' then tag=replaceall(replaceall(trim(middle(text,a+1,b-1)), '&#40;'  , '(' ) , '&#41;'  , ')' )
+  /if
+ return L+moment_escape(tag)+moment_extract(R,LB,RB) /return
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLmoment(d,f) locals DayNum,DayNumR,DayOrd,s do
+ f=moment_extract(f,'[',']')
+ # 
+ # 01/01/2010 12:33:55
+ # 00000000011111111112
+ # 12345678901234567890
+/#
+ s=middle(d,18,19) if length(s)<>2 or s<0 or s>60 or s*1<>s or s+0<>s then s=0 else s=1*(s+0) /if
+ DayNum=getday(d,'short')
+ DayNumR=right(DayNum,1)
+   if DayNumR=1 and DayNum<>11 then DayOrd=DayNum+'st'
+ elif DayNumR=2 and DayNum<>12 then DayOrd=DayNum+'nd'
+ elif DayNumR=3 and DayNum<>13 then DayOrd=DayNum+'rd'
+ else                               DayOrd=DayNum+'th'
+  /if
+
+ f=replaceallX( f, 'YYYY' ,moment_escape(    getyear(d,'LONG')                         ))
+ f=replaceallX( f, 'YY'   ,moment_escape(    getyear(d,'SHORT')                        ))
+
+ f=replaceallX( f, 'MMMM' ,moment_escape(    getmonth(d,'LONG')                        ))
+ f=replaceallX( f, 'MMM'  ,moment_escape(    getmonth(d,'SHORT')                       ))
+ f=replaceallX( f, 'MM'   ,moment_escape(    right('X00'+getmonth(d,'number'),2)       ))
+ f=replaceallX( f, 'M'    ,moment_escape(    getmonth(d,'number')                      ))
+
+ f=replaceallX( f, 'DDDD' ,moment_escape(    right('X000'+getyearday(d,''),3)          ))
+ f=replaceallX( f, 'DDD'  ,moment_escape(    getyearday(d,'short')                     ))
+ f=replaceallX( f, 'DD'   ,moment_escape(    right('X00'+getday(d,'short'),2)          ))
+ f=replaceallX( f, 'Do'   ,moment_escape(    DayOrd                                    ))
+ f=replaceallX( f, 'D'    ,moment_escape(    getday(d,'short')                         ))
+
+ f=replaceallX( f, 'Q'    ,moment_escape(    floor((getmonth(d)-1)/3)+1                ))
+
+ f=replaceallX( f, 'dddd' ,moment_escape(    getweekday(d,'long')                      ))
+ f=replaceallX( f, 'ddd'  ,moment_escape(    left(getweekday(d,'short'),3)             ))
+ f=replaceallX( f, 'dd'   ,moment_escape(    left(getweekday(d,'short'),2)             ))
+ f=replaceallX( f, 'd'    ,moment_escape(    getweekday(d,'number')                    ))
+
+ f=replaceallX( f, 'ww'   ,moment_escape(    right('X00'+getweeknum(d,'long'),2)       ))
+ f=replaceallX( f, 'w'    ,moment_escape(    getweeknum(d,'short')                     ))
+
+ f=replaceallX( f, 'A'    ,moment_escape(    right(gettime(d,'short'),2)               ))
+ f=replaceallX( f, 'a'    ,moment_escape(    lower(right(gettime(d,'short'),2))        ))
+
+ f=replaceallX( f, 'HH'   ,moment_escape(    right('X00'+gethour(d,'military'),2)      ))
+ f=replaceallX( f, 'H'    ,moment_escape(    0+gethour(d,'military')                   ))
+
+ f=replaceallX( f, 'hh'   ,moment_escape(    right('X00'+gethour(d,'long'),2)          ))
+ f=replaceallX( f, 'h'    ,moment_escape(    0+gethour(d,'short')                      ))
+
+ f=replaceall(  f, 'mm'   ,moment_escape(    right('X00'+getminute(d,'long'),2)        ))
+ f=replaceall(  f, 'm'    ,moment_escape(    0+getminute(d,'short')                    ))
+
+
+ f=replaceall(  f, 'ss'   ,moment_escape(    right('X00'+s,2)                          ))
+ f=replaceall(  f, 's'    ,moment_escape(    0+s                                       ))
+
+ f=replaceall(  f, 'ZZ'   ,moment_escape(    getutc(d)                                 ))
+ f=replaceall(  f, 'Z'    ,moment_escape(    left(getutc(d),3)+':'+right(getutc(d),2)  ))
+
+ return moment_unescape(f) /return
+/function
+
+
+
+
+function DLLendOfMonth(d) do
+ if length(d)=16 then
+  d=moment(d,'MM/28/YYYY HH:mm')
+  d=adddays(d,10)
+  d=moment(d,'MM/01/YYYY HH:mm')
+  d=adddays(d,-1)
+ elif length(d)=10 then 
+  d=moment(d,'MM/28/YYYY')
+  d=adddays(d,10)
+  d=moment(d,'MM/01/YYYY')
+  d=adddays(d,-1)
+ /if
+ return d /return
+/function
+
+
+
+
+
+
+
+
+function time_unitordinal(unitordinal) locals x,unit,ordinal do
+
+ unit='ERROR'
+ ordinal='ERROR'
+
+ # BY YEAR /#
+ if unitordinal='year'                                  then unit='year' ordinal=-1  /if
+ if unitordinal='endofyear'                             then unit='year' ordinal=366 /if
+ if length(unitordinal)>3 and left(unitordinal,3)='day' then unit='year' ordinal=right(unitordinal,length(unitordinal)-3) /if
+ if unit='year' and ordinal<367 and ordinal>-2 and isinteger(ordinal) then x='ERROR' x[1]=unit x[2]=ordinal return x /return /if
+ if unit='year' then return 'ERROR' /return /if
+
+ # BY MONTH /#
+ if unitordinal='month'      then unit='month' ordinal=-1 /if
+ if unitordinal='1st'        then unit='month' ordinal=1  /if
+ if unitordinal='2nd'        then unit='month' ordinal=2  /if
+ if unitordinal='3rd'        then unit='month' ordinal=3  /if
+ if unitordinal='4th'        then unit='month' ordinal=4  /if
+ if unitordinal='5th'        then unit='month' ordinal=5  /if
+ if unitordinal='6th'        then unit='month' ordinal=6  /if
+ if unitordinal='7th'        then unit='month' ordinal=7  /if
+ if unitordinal='8th'        then unit='month' ordinal=8  /if
+ if unitordinal='9th'        then unit='month' ordinal=9  /if
+ if unitordinal='10th'       then unit='month' ordinal=10 /if
+ if unitordinal='11th'       then unit='month' ordinal=11 /if
+ if unitordinal='12th'       then unit='month' ordinal=12 /if
+ if unitordinal='13th'       then unit='month' ordinal=13 /if
+ if unitordinal='14th'       then unit='month' ordinal=14 /if
+ if unitordinal='15th'       then unit='month' ordinal=15 /if
+ if unitordinal='16th'       then unit='month' ordinal=16 /if
+ if unitordinal='17th'       then unit='month' ordinal=17 /if
+ if unitordinal='18th'       then unit='month' ordinal=18 /if
+ if unitordinal='19th'       then unit='month' ordinal=19 /if
+ if unitordinal='20th'       then unit='month' ordinal=20 /if
+ if unitordinal='21st'       then unit='month' ordinal=21 /if
+ if unitordinal='22nd'       then unit='month' ordinal=22 /if
+ if unitordinal='23rd'       then unit='month' ordinal=23 /if
+ if unitordinal='24th'       then unit='month' ordinal=24 /if
+ if unitordinal='25th'       then unit='month' ordinal=25 /if
+ if unitordinal='26th'       then unit='month' ordinal=26 /if
+ if unitordinal='27th'       then unit='month' ordinal=27 /if
+ if unitordinal='28th'       then unit='month' ordinal=28 /if
+ if unitordinal='29th'       then unit='month' ordinal=29 /if
+ if unitordinal='30th'       then unit='month' ordinal=30 /if
+ if unitordinal='31st'       then unit='month' ordinal=31 /if
+ if unitordinal='endofmonth' then unit='month' ordinal=31  /if
+ if unit='month' and ordinal<32 and ordinal>-2 and isinteger(ordinal) then x='ERROR' x[1]=unit x[2]=ordinal return x /return /if
+ if unit='month' then return 'ERROR' /return /if
+
+ # BY WEEK /#
+ if unitordinal='Week'                           then unit='week' ordinal=-1 /if
+ if unitordinal='Sunday'    or unitordinal='Sun' then unit='week' ordinal=1  /if
+ if unitordinal='Monday'    or unitordinal='Mon' then unit='week' ordinal=2  /if
+ if unitordinal='Tuesday'   or unitordinal='Tue' then unit='week' ordinal=3  /if
+ if unitordinal='Wednesday' or unitordinal='Wed' then unit='week' ordinal=4  /if
+ if unitordinal='Thursday'  or unitordinal='Thr' then unit='week' ordinal=5  /if
+ if unitordinal='Friday'    or unitordinal='Fri' then unit='week' ordinal=6  /if
+ if unitordinal='Saturday'  or unitordinal='Sat' then unit='week' ordinal=7  /if
+ if unit='week' and ordinal<8 and ordinal>-2 and isinteger(ordinal) then x='ERROR' x[1]=unit x[2]=ordinal return x /return /if
+ if unit='week' then return 'ERROR' /return /if
+
+ # BY DAY /#
+ if unitordinal='day' then unit='day' ordinal=0 /if
+ if unit='DAY' then x='ERROR' x[1]=unit x[2]=ordinal return x /return /if 
+ return 'ERROR' /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+ #
+ # Shift is used to move a date around. It takes an Aestiva date, and returns
+ # an Aestiva date. The unitordinal and the amount work together to manipulate
+ # the date. The unitordinal can be something like 'month' this would indicate
+ # that the amount will be by month. It can also be an implied unit. For example
+ # if the unitordinal is 'Tuesday' then it is implied the unit is 'week', so we
+ # will be adding by week and we will shift to 'tuesday' of the returned week.
+ #
+ # SHIFT(DATE,UNITORDINAL,AMOUNT)
+ #
+ # UNIT        UNITORDINAL
+ # ----------- -----------
+ # 
+ # MONTH       month
+ #             1st         day 1 in the month
+ #             2nd         day 2 in the month
+ #             3rd etc...
+ #             31st        day 31 in month or last day in month
+ #             endofmonth  last day in month
+ # 
+ #             example: shift('11/01/2011','endofmonth',2) = '01/31/2012'
+ # 
+ # WEEK        week
+ #             Sunday
+ #             Monday
+ #              etc...
+ #             Saturday
+ # 
+ #             example: shift('10/01/2014','week',-2) = '09/17/2014'
+ #                      shift('10/01/2014','Sunday',0) = '09/28/2014'
+ #                      shift('10/01/2014','Sunday','first') = '10/05/2014'
+ #                      shift('10/01/2014','Sunday','second') = '10/12/2014'
+ #                      shift('10/01/2014','Sunday','third') = '10/19/2014'
+ #                      shift('10/01/2014','Sunday','fourth') = '10/26/2014'
+ #                      shift('10/01/2014','Sunday','last') = '10/26/2014'
+
+
+
+ # 
+ # DAY         day
+ #             example: shift('03/12/2012','day',20) = '04/01/2014'
+ # 
+ # YEAR        year
+ #             endofyear
+ #             day1        first day of the year
+ #             day2        second day of the year
+ #              etc...
+ #             day365      365th day of the year
+ #             day366      Synonymn of endofyear
+ # 
+ #             example: shift('09/21/2000','year',5)
+/#
+
+function DLLshift(thedate,unitordinal,amount) locals x,x1,t,unit,ordinal,thetime,n do
+ thetime=replace(thedate,left(thedate,10),'') if thetime='ERROR' then thetime='' /if
+ thedate=left(thedate,10)
+ x=time_unitordinal(unitordinal)
+ unit=x[1]
+ ordinal=x[2]
+ if unit='day' then
+  return adddays(thedate,amount)+thetime /return
+ /if
+ if unit='week' and ordinal=-1 then
+  return adddays(thedate,amount*7)+thetime /return
+ /if
+ if unit='week' then
+  if amount='first' or amount='second' or amount='third' or amount='fourth' or amount='last' then
+   if getmonth(shift(thedate,unitordinal,0))=getmonth(thedate) then adder=-1 else adder=0 /if
+   if amount='first' then
+    return shift(thedate,unitordinal,1+adder) /return
+   elif amount='second' then
+    return shift(thedate,unitordinal,2+adder) /return
+   elif amount='third' then
+    return shift(thedate,unitordinal,3+adder) /return
+   elif amount='fourth'then
+    return shift(thedate,unitordinal,4+adder) /return
+   elif amount='last' then
+
+    return shift(shift(thedate,'endofmonth',0),unitordinal,0) /return
+
+   /if
+  /if
+
+
+  return adddays(thedate,-1*(GETWEEKDAY(thedate,'number')-ordinal)+amount*7)+thetime /return
+ /if
+ if unit='month' and ordinal=-1 then
+  return NEXTDAYBYMONTHFROMDATE(thedate,amount-1,getday(thedate))+thetime /return
+ /if
+ if unit='month' then
+  t=getday(thedate) n=t if t>28 then n=28 /if
+  x1=NEXTDAYBYMONTHFROMDATE(thedate,amount-1,n)
+  temp=getday(endofmonth(x1))
+  if temp>t then x1=moment(x1,'MM/['+right('X00'+temp,2)+']/YYYY') /if
+  if ordinal>temp then ordinal=temp /if
+  return moment(x1,'MM/['+right('X00'+ordinal,2)+']/YYYY')+thetime /return
+ /if
+ if unit='year' and ordinal<>-1 then
+  if ordinal=366 then
+   thedate='12/31/'+getyear(thedate)
+  else
+   thedate=adddays('01/01/'+getyear(thedate),ordinal-1)
+  /if
+  ordinal=-1
+ /if
+ if unit='year' and ordinal=-1 then
+  temp=getday(thedate)
+  if temp=29 and getmonth(thedate)=2 then 
+   return endofmonth(moment(thedate,'MM/28/['+(getyear(thedate)+amount)+']'))+thetime /return
+  else
+   return moment(thedate,'MM/DD/['+(getyear(thedate)+amount)+']')+thetime /return
+  /if
+ /if
+ return x /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function parse_as_unittest(kind,text) do
+ return parse_as(kind,text) /return
+/function
+
+function parse_as(kind,text) locals x,found,t,a,temp,s,h,m,sp,l do
+
+ if kind='zulu' then
+  if text='Z' then return 0 /return /if
+  if count(text,':')>1 then
+   return 'ERROR:'+kind /return
+  elif count(text,':')=1 then
+   text=replace(text,':','')
+  /if
+  if length(text)=4 then
+   h=1*(middle(text,1,2))
+   m=1*(middle(text,3,4))
+   s=1
+   temp=h*60+m
+   if temp='ERROR' then
+    return 'ERROR:'+kind /return
+   else
+    if abs(temp)>=(15*60) then
+     return 'ERROR:'+kind /return
+    else
+     return temp /return
+    /if
+   /if
+  elif length(text)=5 then
+   h=1*(middle(text,2,3))
+   m=1*(middle(text,4,5))
+   s=left(text,1) if s='+' then s=1 elif s='-' then s=-1 else return 'ERROR:3'+kind /return /if
+   temp=s*(h*60+m)
+   if temp='ERROR' then
+    return 'ERROR:'+kind /return
+   else
+    if abs(temp)>=(15*60) then
+     return 'ERROR:'+kind /return
+    else
+     return temp /return
+    /if
+   /if
+  /if
+  return 'ERROR:'+kind /return
+ /if
+
+
+
+
+
+ if kind='digit' then
+  if text='0' then return '0' /return /if
+  if text='1' then return '1' /return /if
+  if text='2' then return '2' /return /if
+  if text='3' then return '3' /return /if
+  if text='4' then return '4' /return /if
+  if text='5' then return '5' /return /if
+  if text='6' then return '6' /return /if
+  if text='7' then return '7' /return /if
+  if text='8' then return '8' /return /if
+  if text='9' then return '9' /return /if
+  return 'ERROR:'+kind /return
+ /if
+
+
+
+ if kind='meridiem' then
+  if text='am' or text='A.M.' or text='a' then return 'am' /return /if
+  if text='pm' or text='P.M.' or text='p' then return 'pm' /return /if
+  return 'ERROR:'+kind /return
+ /if
+
+
+ if kind='ordinal' then
+  text=replace(text,'11th','11')
+  text=replace(text,'12th','12')
+  text=replace(text,'13th','13')
+  text=replace(text,'0th','0')
+  text=replace(text,'1st','1')
+  text=replace(text,'2nd','2')
+  text=replace(text,'3rd','3')
+  text=replace(text,'4th','4')
+  text=replace(text,'5th','5')
+  text=replace(text,'6th','6')
+  text=replace(text,'7th','7')
+  text=replace(text,'8th','8')
+  text=replace(text,'9th','9')
+  return text /return
+ /if
+
+ if kind='year' then
+  if isinteger(text) then
+   if text>999 and text<10000 then
+    return text /return
+   elif text<50 and text >-1 then
+    return 2000+text /return
+   elif text>49 and text <100 then
+    return 1900+text /return
+   elif text>99 and text <1000 then
+    return right('X00'+text,4) /return
+   else
+    return 'ERROR:'+kind /return
+   /if
+  else
+   return 'ERROR:'+kind /return
+  /if
+ /if
+
+ if kind='month' then
+  if isinteger(text) and text>0 and text<13 then
+   return text /return
+  else
+   if isinteger(text) then return 'ERROR:Month' /return /if
+   l=length(text)
+   if text=left('January'  ,l) or text='JA' then return  '1' /return /if
+   if text=left('February' ,l) or text='FE' then return  '2' /return /if
+   if text=left('March'    ,l) or text='MR' then return  '3' /return /if
+   if text=left('April'    ,l) or text='AP' then return  '4' /return /if
+   if text=left('May'      ,l) or text='MY' then return  '5' /return /if
+   if text=left('June'     ,l) or text='JN' then return  '6' /return /if
+   if text=left('July'     ,l) or text='JL' then return  '7' /return /if
+   if text=left('August'   ,l) or text='AU' then return  '8' /return /if
+   if text=left('September',l) or text='SE' then return  '9' /return /if
+   if text=left('October'  ,l) or text='OC' then return '10' /return /if
+   if text=left('November' ,l) or text='NV' then return '11' /return /if
+   if text=left('December' ,l) or text='DE' then return '12' /return /if
+   return 'ERROR:'+kind /return
+  /if
+ /if
+
+ if kind='monthday' then
+  text=parse_as('ordinal',text) 
+  if left(text,5)='ERROR' then return 'ERROR:'+kind /return /if
+  if isinteger(text) then
+   if text>0 and text<32 then
+    return text /return
+   else
+    return 'ERROR:'+kind /return
+   /if
+  else
+   return 'ERROR:'+kind /return
+  /if
+ /if
+
+
+
+
+ if kind='hour' then
+  found='ERROR'
+  for name=x value=1 to length(text) do
+   if left(parse_as('digit',middle(text,x,x)),5)='ERROR' then found=x BREAK /if
+  /for
+  if found<>'ERROR' then
+   t=1*(trim(left(text,found-1)))
+   a=trim(middle(text,found,length(text)))
+  else
+   t=1*text
+   a=''
+  /if
+
+  if isinteger(t) and t>-1 and t<24 and a='' then
+   return t /return
+  elif t=24 and a='' then
+   return 0 /return
+  else
+   if a='am' and t>-1 and t<12 then
+    return t /return
+   elif a='pm' and t>-1 and t<12 then
+    return t+12 /return
+   elif a='pm' and (t=12 or t=0) then 
+    return 12 /return
+   elif a='am' and (t=12 or t=0) then 
+    return 0 /return
+   else
+    return 'ERROR:'+kind /return
+   /if
+  /if
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if kind='minute' then
+  if isinteger(text) and text>-1 and text<60 then
+   return 1*text /return
+  else
+   return 'ERROR:'+kind /return
+  /if
+ /if
+
+
+ if kind='second' then
+  if isinteger(text) and text>-1 and text<60 then
+   return 1*text /return
+  else
+   return 'ERROR:'+kind /return
+  /if
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+function splitdate_unittest(text,template) do
+ return spaces(getcol(splitdate(text,template),1)) /return
+/function
+
+
+function splitdate(text,template) locals thedate,thetemp,thetempactual,thedateactual,temp,x,t,i,s,l do
+
+
+ template=replace(template,'Z',' Z')
+ thetempactual=split(normalize_date_whitespace_preserve_sign(template),' ')
+ template=replace(template,'Z','Z|Z')
+ thedate=split(normalize_date_whitespace_preserve_sign(replace(text,'Z',' Z')),' ')
+ thetemp=split(normalize_date_whitespace_preserve_sign(template),' ')
+
+ # Remove hyphen (-) from fields that are not Z /#
+ for name=thedate rownum=x do
+  if (left(thedate[1,x],1)='-' or left(thedate[1,x],1)='+') and thetemp[1,x]<>'Z' then
+   thedate[1,x]=right(thedate[1,x],length(thedate[1,x])-1)
+  /if
+ /for
+
+ # Merge rows that have the same keyword /#
+ t='ERROR'
+ l='ERROR'
+ temp=''
+ for name=thetemp rownum=x do
+  if l<>thetemp[1,x] then t=appends(t,left(temp,length(temp)-1)) temp='' /if
+
+  temp=temp+showwith('',thedate[1,x],':')
+
+  l=thetemp[1,x]
+ /for
+ t=appends(t,left(temp,length(temp)-1))
+ thedateactual=t
+
+ # Split Rows like YYYYMMDD or HHMMSS /#
+ thetemp=thetempactual
+ thetempactual='ERROR'
+ thedateactual='ERROR'
+ for name=thetemp rownum=x do
+  if length(thetemp[1,x])>1 then
+   s=fixedsplit(t[1,x],thetemp[1,x])
+   if left(s,6)='ERROR:' then return s /return /if
+   thedateactual=appends(thedateactual,getcol(s,1))
+   thetempactual=appends(thetempactual,getcol(s,2))
+  else
+   thedateactual=appends(thedateactual,t[1,x])
+   thetempactual=appends(thetempactual,thetemp[1,x])
+  /if
+ /for
+
+ Z='ERROR'
+ for name=thetempactual rownum=x do
+  if thetempactual[1,x]='X' then thedateactual[1,x]='X' /if
+  if thetempactual[1,x]='Z' then Z=X /if
+ /for
+
+ if z<>'ERROR' then
+  thedateactual=delrows(thedateactual,z+1,rows(thedateactual))
+  thetempactual=delrows(thetempactual,z+1,rows(thetempactual))
+ /if
+
+
+ return merge(thedateactual,thetempactual) /return
+
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function normalize_date_whitespace_preserve_sign_unittest(text) do
+ return normalize_date_whitespace_preserve_sign(text) /return
+/function
+
+
+function normalize_date_whitespace_preserve_sign(text) do
+ # SPACE - . : / T /#
+ text=replaceall(text,' ',' ')
+ text=replaceall(text,'.',' ')
+ text=replaceall(text,',',' ')
+ text=replaceall(text,':',' ')
+ text=replaceall(text,'/',' ')
+ text=replaceall(text,'_',' ')
+ text=replaceall(text,'|',' ')
+
+   # Treat T as whitespace but...
+   # Protect keywords
+   # -----------------
+   # Thu     th
+   # Tue     tu
+   # August  st
+   # Sept    pt
+   # Oct     ct
+   # Sat     at
+  /#
+
+ text=replaceall(text,'th','*h')
+ text=replaceall(text,'tu','*u')
+ text=replaceall(text,'st','s*')
+ text=replaceall(text,'pt','p*')
+ text=replaceall(text,'ct','c*')
+ text=replaceall(text,'at','a*')
+
+ text=replaceall(text,'T',' ')
+
+ text=replaceall(text,'*h','th')
+ text=replaceall(text,'*u','tu')
+ text=replaceall(text,'s*','st')
+ text=replaceall(text,'p*','pt')
+ text=replaceall(text,'c*','ct')
+ text=replaceall(text,'a*','at')
+
+
+
+ text=replaceall(text,'-',' -')
+ text=replaceall(text,'+',' +')
+ text=replaceall(text,'  ',' ')
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function dateToHTMLOS_unittest(text,template) do
+ return DLLdateToHTMLOS(text,template) /return
+/function
+
+
+function DLLdateToHTMLOS(text,template) locals temp,thedate,thetemp,found,   Y,M,D,hh,mm,ss,ZH,ZM,Z, td,tt,i,x do
+ temp=splitdate(text,template)
+ thedate=getcol(temp,1)
+ thetemp=getcol(temp,2)
+ if abs(rows(thedate)-rows(thetemp))<>0 then return "ERROR:Input Doesn't Match Template" /return /if
+ for name=thetemp rownum=x do
+  if thetemp[1,x]=='Y'  then  Y=parse_as('year'      ,thedate[1,x]) /if
+  if thetemp[1,x]=='M'  then  M=parse_as('month'     ,thedate[1,x]) /if
+  if thetemp[1,x]=='D'  then  D=parse_as('monthday'  ,thedate[1,x]) /if
+  if thetemp[1,x]=='h'  then hh=parse_as('hour'      ,thedate[1,x]) /if
+  if thetemp[1,x]=='m'  then mm=parse_as('minute'    ,thedate[1,x]) /if
+  if thetemp[1,x]=='s'  then ss=parse_as('second'    ,thedate[1,x]) /if
+  if thetemp[1,x]=='Z'  then  Z=parse_as('zulu'      ,thedate[1,x]) /if
+ /for
+ found=''
+ if left( Y,6)='ERROR:' then found=found+', '+replace( Y,'ERROR:','') /if
+ if left( M,6)='ERROR:' then found=found+', '+replace( M,'ERROR:','') /if
+ if left( D,6)='ERROR:' then found=found+', '+replace( D,'ERROR:','') /if
+ if left(hh,6)='ERROR:' then found=found+', '+replace(hh,'ERROR:','') /if
+ if left(mm,6)='ERROR:' then found=found+', '+replace(mm,'ERROR:','') /if
+ if left(ss,6)='ERROR:' then found=found+', '+replace(ss,'ERROR:','') /if
+ if left( Z,6)='ERROR:' then found=found+', '+replace( Z,'ERROR:','') /if
+ if found<>'' then
+  return 'ERROR:'+right(found,length(found)-2) /return
+ /if
+ if isinteger( M) then  M=right('X00'+M ,2) /if
+ if isinteger( D) then  D=right('X00'+D ,2) /if
+ if isinteger(hh) then hh=right('X00'+hh,2) /if
+ if isinteger(mm) then mm=right('X00'+mm,2) /if
+ if isinteger(ss) then ss=right('X00'+ss,2) /if
+ thedate=M+'/'+D+'/'+Y+showwith(' ',hh,showwith(':',mm,''))
+ if adddays(thedate,0)<>thedate then
+  return 'ERROR: Date Parse problem ('+thedate+')' /return
+ /if
+ if isinteger(Z) then
+  thedate=addminutes(thedate,Z)
+  if isinteger(hh) and isinteger(mm) then thedate=thedate+showwith(':',ss,'') /if
+ /if
+ return thedate /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function fixedsplit_unittest(text,template) locals x,temp do 
+ return spaces(getcol(fixedsplit(text,template),1)) /return
+/function
+
+function fixedsplit_col2_unittest(text,template) locals x,temp do 
+ return spaces(getcol(fixedsplit(text,template),2)) /return
+/function
+
+
+
+function fixedsplit(text,template) locals temp,x,l,tx,tm,s,e,m,o,text_out,template_out do 
+ tx=length(text) tm=length(template)
+ if tx<>tm then return 'ERROR: Template/Data Mismatch('+text+','+template+')' /return /if
+ l=middle(template,1,1)
+ s=1
+ o=''
+ for name=x value=1 to length(text)+1 do
+  m=middle(template,x,x)
+  if l<>m then
+   e=x-1
+   o=o+l+'('+s+','+e+')['+middle(text,s,e)+']'
+   text_out=appends(text_out,middle(text,s,e))
+   template_out=appends(template_out,l)
+   s=x
+  /if
+  l=m
+ /for
+ return merge(text_out,template_out) /return
+/function
+
+
+
+
+
+
+function TIME.LIB.numberasword(n) do
+ if n=1  then return 'first'  /return /if
+ if n=2  then return 'second' /return /if
+ if n=3  then return 'third'  /return /if
+ if n=4  then return 'fourth' /return /if
+ if n=-1 then return 'last' /return /if
+ return n+'th' /return
+/function
+
+
+
+function TIME.LIB.aestivaspringweek(w) do
+ if w=1  then return 1 /return /if
+ if w=2  then return 3 /return /if
+ if w=3  then return 4 /return /if
+ if w=4  then return 5 /return /if
+ if w=-1 then return 2 /return /if
+ return 'ERROR' /return
+/function
+
+
+function DLLgetTime.conf(timezone) do
+ return getTime.confALL(timezone,'time.conf') /return
+/function
+
+function DLLTimeZoneDetails(timezone) do
+ return getTime.confALL(timezone,'details') /return
+/function
+
+
+
+function getTime.confALL(timezone,returnas)
+ locals 
+  DSTCHART,year,i,prev,curr,x,z,y,n,TZDATE,TZADJUST,q,temputc,
+  ADJUST,DST,SPRINGMONTH,SPRINGWEEK,SPRINGDAY,SPRINGHOUR,FALLMONTH,FALLWEEK,FALLDAY,FALLHOUR,UTCADJUSTSTANDARD,UTCADJUSTSAVING,
+  time.conf,timezone.conf
+ do
+  # /system/conf/time.conf file format
+  # ----------------------------------------
+  # "Time Adjustment",
+  # "NONE|US|EU|CUSTOM",
+  # "SPRINGMONTH 0-January 1-February 2-March 3-April 4-May 5-June 6-July 7-August 8-September 9-October 10-November 11-December",
+  # "SPRINGWEEK 1-First 3-Second 4-Third 5-Fourth 2-Last",
+  # "SPRINGDAY 0-Sunday 1-Monday 2-Tuesday 3-Wednesday 4-Thursday 5-Friday 6-Saturday",
+  # "SPRINGHOUR 0-00:00 1-01:00 ... 23-23:00",
+  # "FALLMONTH 0-January 1-February 2-March 3-April 4-May 5-June 6-July 7-August 8-September 9-October 10-November 11-December",
+  # "FALLWEEK 1-First 3-Second 4-Third 5-Fourth 2-Last",
+  # "FALLDAY 0-Sunday 1-Monday 2-Tuesday 3-Wednesday 4-Thursday 5-Friday 6-Saturday",
+  # "FALLHOUR 0-00:00 1-01:00 ... 23-23:00",
+  # "UTCADJUSTSTANDARD",
+  # "UTCADJUSTSAVING"
+  # 
+  # US: Add 1 hour between Second Sunday of March at 02:00 a.m. and First Sunday of November at 02:00 a.m.
+  # EU: Add 1 hour between Last Sunday of March at 02:00 a.m. and Last Sunday of October at 02:00 a.m.
+ /#
+ ADJUST=1
+ DST=2
+ SPRINGMONTH=3
+ SPRINGWEEK=4
+ SPRINGDAY=5
+ SPRINGHOUR=6
+ FALLMONTH=7
+ FALLWEEK=8
+ FALLDAY=9
+ FALLHOUR=10
+ UTCADJUSTSTANDARD=11
+ UTCADJUSTSAVING=12
+ copy file="/system/conf/time.conf" ts="," to time.conf /copy
+ timezone.conf=time.conf
+ if timezone='' or timezone='ERROR' then
+  return 'ERROR' /return
+ else
+  DSTCHART='ERROR'
+  year=getyear(now)
+  i='ERROR'
+  prev='ERROR'
+  curr='ERROR'
+  for name=x value=1 to 12 do
+   z=x
+   for name=y value=1 to 4 do
+    n=y if n=4 then n=-1 /if
+    TZDATE=shift(x+'/01/'+year,'Sunday',TIME.LIB.numberasword(n))+' 12:00'
+    TZADJUST=TimeZoneToUTC(timezone,TZDATE)
+    CURR=60*(replace(chopchopright(TZADJUST,':'),'+',''))+1*(right(TZADJUST,2))
+    if PREV<>'ERROR' and CURR<>PREV then
+     q='ERROR' q[1]=n q[2]=x q[3]=TIME.LIB.numberasword(n)+' Sunday of '+getmonth(x+'/01/2017','long') q[4]=TZADJUST q[5]=CURR  i=appends(i,q)
+    /if
+    PREV=CURR
+    z=merge(z,TZDATE)
+    z=merge(z,CURR)
+   /for
+   DSTCHART=appends(DSTCHART,z)
+  /for
+  if i='ERROR' then
+   q='ERROR' q[1]='' q[2]='' q[3]='Does not observe DST' q[4]=TZADJUST q[5]=CURR  i=appends(i,q)
+  /if
+  timezone.conf[DST]='CUSTOM'
+  if i[1,1]='' then timezone.conf[DST]='NONE' /if
+  if 1*i[1,1]=2 and 1*i[2,1]=3 and 1*i[1,2]=1 and 1*i[2,2]=11  then timezone.conf[DST]='US' /if
+  if 1*i[1,1]=-1 and 1*i[2,1]=3 and 1*i[1,2]=-1 and 1*i[2,2]=10  then timezone.conf[DST]='EU' /if
+
+  temputc=UTCOFFSET('01/01/'+getyear(now))
+  timezone.conf[ADJUST]=DSTCHART[3,1] - (60*(replace(left(temputc,3),'+',''))+1*(right(temputc,2)))
+
+  if timezone.conf[DST]='CUSTOM' then
+   timezone.conf[SPRINGMONTH]=i[2,1]-1
+   timezone.conf[SPRINGWEEK]=TIME.LIB.aestivaspringweek(i[1,1])
+   timezone.conf[SPRINGDAY]=0
+   timezone.conf[SPRINGHOUR]=2
+   timezone.conf[FALLMONTH]=i[2,rows(i)]-1
+   timezone.conf[FALLWEEK]=TIME.LIB.aestivaspringweek(i[1,rows(i)])
+   timezone.conf[FALLDAY]=0
+   timezone.conf[FALLHOUR]=2
+  /if
+ /if
+ if returnas='time.conf' then
+  return timezone.conf /return
+ else
+  return i /return
+ /if
+/function

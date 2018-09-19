@@ -1,0 +1,227 @@
+expand file="/system/clearimage/libraries/email.lib" /expand
+
+function DLLpop3_connect(sock,cmd) locals e,em,temp,temp1,x,y,z,a,c,cmd1,msg,lin,q,ismime,bounds,isheader,header,head,mme,inmimehead,mimeorder,countr,lx,lx,b,delbounds,addbounds,tdate,realdate,bbody do
+ isheader='TRUE'
+ q=split(cmd,' ')
+ cmd1=q[1,1]
+  msg=q[1,2]
+  lin=q[1,3]
+
+ if cmd1='retr' or cmd1='top' or cmd1='head' or cmd1='summ' then
+  if lin='' or lin='ERROR' then lin='emailmsg' /if
+  temp=indirectionset(lin,'ERROR')
+ /if
+
+ if cmd1='OPEN' then
+  # Open then Get first line/#
+  if msg='mail.clearimageonline.com' and lin=995 then msg='localhost' lin=10110 /if
+  if msg='pop.gmail.com' and lin=995 then msg='localhost' lin=11110 /if
+  temp=netsockopen(sock,msg,lin,10)
+  if temp[1,1]='TRUE' then
+   x=netsockread(sock,5000)
+   return pop3_respond('TRUE',cmd1+' '+msg+' '+lin+lf+x,'') /return
+  else
+   return pop3_respond('ERROR','ERROR Connecting to POP server('+sock+' '+msg+' '+lin+')'+ci_table(temp),'') /return
+  /if
+ else
+  c=left(cmd1+' ',4) multiline='ERROR'
+  if c='STAT' or c='DELE' or c='USER' or c='PASS' or c='NOOP' or c='RSET' or c='QUIT' then multiline='FALSE' /if
+  if c='LIST' or c='RETR' or c='TOP ' or c='UIDL' or c='HEAD' or c='SUMM' then multiline='TRUE' /if
+  if c='LIST' and msg<>'' then multiline='FALSE' /if
+  if c='UIDL' and msg<>'' then multiline='FALSE' /if
+  if cmd1='HEAD' then
+   cmd=trim('TOP '+msg+' 0')
+  elif cmd1='SUMM' then
+   cmd=trim('TOP '+msg+' 20')
+  elif c='retr' then
+   cmd=trim('RETR '+msg)
+  else
+   cmd=trim(cmd1+' '+msg+' '+lin)
+  /if
+  if multiline='ERROR' then return pop3_respond('ERROR','INVALID POP COMMAND',cmd) /return /if
+  # Send command /#
+  temp=netsockwrite(sock,cmd+cr+lf)
+  if c='QUIT' then 
+   x=netsockclose(sock)
+   return pop3_respond('QUIT','Closed Connection',x) /return
+  /if
+  if multiline<>'TRUE' then
+   # Get response /#
+   if temp[1,1]='TRUE' then
+    x=netsockread(sock,5000)
+    if left(x,3)='+OK' then
+     if cmd1='STAT' then
+      z=listtorow(replace(x,'+OK ',''),' ')
+     else
+      z=''
+     /if
+     if cmd1='pass' then cmd=replace(cmd,msg,'<i>[supressed]</i>') /if
+     return pop3_respond('TRUE',cmd+lf+x,z) /return
+    else
+     if cmd1='pass' then cmd=replace(cmd,msg,'<i>[supressed]</i>') /if
+     return pop3_respond('ERROR',cmd+lf+x,'') /return
+    /if
+   else
+    if cmd1='pass' then cmd=replace(cmd,msg,'<i>[supressed]</i>') /if
+    return pop3_respond('ERROR','ERROR Sending "'+cmd+'"','') /return
+   /if
+  else # multiline='TRUE' /#
+   # Get response /#
+   if temp[1,1]<>'TRUE' then
+    return pop3_respond('ERROR','ERROR Sending "'+cmd+'"','') /return
+   /if
+   z='' mimeorder=1 mme='ERROR' inmimehead='ERROR'
+   if cmd1='retr' then # IS retr bypass /#
+    x='ERROR' y=''
+    x=netsockread(sock,5000)
+    if left(x,3)='+OK' then
+     z=''
+    else
+     z=x
+    /if
+    while temp[1,1]='TRUE' do
+     x=netsockread(sock,5000) z=z+x+cr+lf
+     if x='.' then temp[1,1]='FALSE' /if
+    /while
+    return z /return
+   else # NOT retr bypass /#
+    x=netsockread(sock,5000)
+    if left(x,3)='+OK' then
+     z=''
+    else
+     z=x
+    /if
+    while temp[1,1]='TRUE' do
+     x=netsockread(sock,5000)
+     if left(x,1)='.' and length(x)=1 then
+      temp[1,1]='FALSE'
+      if cmd1='head' or cmd1='summ' then 
+       y='[<i>'+cmd1+' '+msg+'</i>]'
+      else
+       y='[<i>'+cmd+'</i>]'
+      /if
+     else
+      if left(x,1)='.' then x=right(x,length(x)-1) /if
+      if cmd1='retr' or cmd1='top' or cmd1='head' or cmd1='summ' then
+       z=z+x+cr+lf
+       lz=length(z) lx=length(x)
+       if x='' and isheader<>'FALSE' then header[11,1]=hash(z) bbody=lz /if
+       if x='' then isheader='FALSE' /if
+       if isheader='TRUE' then
+        # 1:from, 2:to, 3:subject, 4:return-path, 5:date, 6:mime, 7:content-type, 8:boundary, 9:message-id /#
+        if left(x,5)='From:'          then header[1,1]=trim(right(x,lx-5)) /if
+        if left(x,3)='To:'            then header[2,1]=trim(right(x,lx-3)) /if
+        if left(x,8)='Subject:'       then header[3,1]=trim(right(x,lx-8)) /if
+        if left(x,12)='Return-Path:'  then header[4,1]=trim(right(x,lx-12)) /if
+        if left(x,5)='Date:'          then header[5,1]=trim(right(x,lx-5)) realdate='TRUE' /if
+        if realdate='ERROR' then
+         tdate=trim(replace(reverse(chopright(reverse(x),';')),';',''))
+         if count(tdate,':')=2 and count(tdate,' ')=4 and length(tdate)<30 then header[5,1]=tdate /if
+        /if
+        if left(x,13)='Mime-Version:' then header[6,1]=x ismime='TRUE' /if
+        if left(x,13)='Content-Type:' then header[7,1]=trim(right(x,lx-13)) if right(header[7,mimeorder],1)=';' then header[7,mimeorder]=left(header[7,mimeorder],length(header[7,mimeorder])-1) /if /if
+        if count(x,'boundary=')=1      then header[8,1]=replaceall(replace(chopleft(x,'boundary='),'boundary=',''),'"','') bounds[1,1]=header[8,1] /if
+        if left(x,11)='Message-ID:'   then header[9,1]=trim(right(x,lx-11))  /if
+        if left(x,26)='Content-Transfer-Encoding:' then header[10,mimeorder]=trim(right(x,lx-26))  /if
+       else
+        delbounds='ERROR' addbounds='ERROR'
+        for name=bounds rownum=b do
+         if x='--'+bounds[1,b] or x='--'+bounds[1,b]+'--' then
+          if inmimehead[1]='FALSE' then
+           if x<>'--'+bounds[1,b]+'--' then mme[5,mimeorder]=lz-lx-4 /if
+           mimeorder=mimeorder+1
+          /if
+          if x<>'--'+bounds[1,b]+'--' then
+           bounds[2,b]=mimeorder
+           mme[1,mimeorder]=mimeorder+'-'+(b-1) mme[2,mimeorder]=lz inmimehead[b]='TRUE'
+          else
+           mme[5,bounds[2,b]]=lz-lx-4
+           delbounds=b
+          /if
+         /if
+         if inmimehead[b]='TRUE' then
+          if x='' then 
+           inmimehead[b]='FALSE' mme[3,mimeorder]=lz
+           mme[1,mimeorder]=mimeorder+'-'+(b-1) mme[4,mimeorder]=lz
+          /if
+          if left(x,12)='Content-Id: '                then mme[6, mimeorder]=middle(x,14,lx-1) /if
+          if left(x,14)='Content-Type: '              then mme[7, mimeorder]=right(x,lx-14) if right(mme[7,mimeorder],1)=';' then mme[7,mimeorder]=left(mme[7,mimeorder],length(mme[7,mimeorder])-1) /if /if
+          if count(x,'boundary=')=1                   then mme[8, mimeorder]=replace(replace(chopleft(x,'boundary='),'boundary=',''),';','') addbounds=mme[8,mimeorder] /if
+          if count(x,'name=')=1                       then mme[9, mimeorder]=replaceall(replace(chopleft(x,'name='),'name=',''),'"','') /if
+          if left(x,27)='Content-Transfer-Encoding: ' then mme[10,mimeorder]=right(x,lx-27)  /if
+          if left(x,21)='Content-Disposition: '       then mme[11,mimeorder]=right(x,lx-21)  /if
+          if count(x,'charset=')=1                    then mme[12,mimeorder]=replaceall(replace(chopleft(x,'charset='),'charset=',''),'"','') /if
+         /if
+        /for
+        if delbounds<>'ERROR' then bounds=delrow(bounds,delbounds) /if
+        if addbounds<>'ERROR' then bounds=append(bounds,addbounds) /if
+       /if
+      else
+       a=listtorow(x,' ')
+       z=appends(z,a)
+      /if
+     /if
+    /while
+    # If OK Close send success /#
+    if left(x,1)='.' then
+     if cmd1='retr' or cmd1='top' or cmd1='head' or cmd1='summ' then
+      if mme[1,1]='ERROR' then mme[1,1]='BODY' mme[2,1]=0 mme[3,1]=bbody-2 mme[4,1]=bbody mme[5,1]=lz mme[7,1]=header[7,1] mme[10,1]=header[10,1] /if
+      if lin='' or lin='ERROR' then
+      else
+       if cmd1='SUMM' or cmd1='HEAD' then
+        temp=indirectionset(lin,'ERROR')
+       else
+        temp=indirectionset(lin,z)
+       /if
+      /if
+      if left(mme[7,1],4)='text' then
+       s='ERROR'
+       if isinteger(mme[4,1]) then s=mme[4,1] elif isinteger(mme[3,1]) then s=mme[3,1] elif isinteger(mme[2,1]) then s=mme[2,1] /if
+       if s='ERROR' then s=locate(z,cr+lf+cr+lf) /if if s='ERROR' then s=1 /if
+       if isinteger(mme[5,1]) then e=mme[5,1] else e=length(z) /if
+       em=middle(z,s,e)
+       em=replaceall(em,lf+lf,lf)
+       em=replaceall(em,lf+lf,lf)
+       em=replaceall(em,lf,' ')
+       em=html2text(em)
+       em=left(em,300)
+       em=replaceall(em,'<','&lt;')
+       em=replaceall(replaceall(replaceall(replaceall(replaceall(em,'>',' '),'&gt;',' '),'<',' '),'&lt;',' '),'  ',' ')
+       header[12,1]=qp_decode(em)
+      else
+       header[12,1]='[no summary]'
+      /if
+      if cmd1='SUMM' or cmd1='HEAD' then
+       x='FROM' x[2,1]='TO' x[3,1]='SUBJECT' x[4,1]='RETURN-PATH' x[5,1]='DATE' x[6,1]='MIME' x[7,1]='CONTENT-TYPE' x[8,1]='BOUNDARY' x[9,1]='MESSAGE-ID' x[10,1]='ENCODING' x[11,1]='HASHVALUE' x[12,1]='SUMMARY'
+       z=append(x,header)
+      else
+       x='FROM/ATTACHMENTID' x[2,1]='TO/START' x[3,1]='SUBJECT/END' x[4,1]='RETURN-PATH/START' x[5,1]='DATE/END' x[6,1]='MIME/CID' x[7,1]='CONTENT-TYPE' x[8,1]='BOUNDARY' x[9,1]='MESSAGE-ID/NAME' x[10,1]='ENCODING' x[11,1]='HASHVALUE/DISPOSITION' x[12,1]='SUMMARY/UNUSED'
+       z=append(x,header)
+       z=append(z,mme)
+      /if
+     /if
+     return pop3_respond('TRUE',y,z) /return
+    else
+     return pop3_respond('ERROR','ERROR Getting "'+cmd+'"'+y,'') /return
+    /if
+   /if # END retr bypass /#
+  /if # multiline /#
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+function pop3_respond(status,dialog,table) locals x do
+ x[1]=status x[2]=replaceall(dialog,lf,'<br>')
+ if table<>'' and table<>'ERROR' then x=append(x,table) /if
+ return x /return
+/function
+

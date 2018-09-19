@@ -1,0 +1,473 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the letters DLL in the function name
+/#
+
+
+
+ # 
+ # File Formats
+ # JSON
+ # XML
+ #
+ # We rely on a global tag_filetype to determine output text format
+ # if tag_filetype is ambiguous then default to json
+ #  - if tag_filetype='XML' then filetype='XML' else filetype='JSON' /if
+/#
+
+
+
+
+
+function DLLnode(n,v) locals filetype,x,a do
+ if count(n,' ')>0 then
+  a=chopchopleft(n,' ')
+  n=chopchopright(n,' ')
+  return nodeAttribs(n,v,a) /return
+ /if
+ return nodeALL(n,v) /return
+/function
+
+function DLLappendNode(tab,n,v) do
+ return appends(tab,node(n,v)) /return
+/function
+
+
+
+
+function DLLNodeList(n,v) do
+ return appendNodeList('ERROR',n,v) /return
+/function
+
+
+function DLLappendNodeList(tab,n,v) locals x,filetype,thearray,thejson,y do
+ if tag_filetype='XML' then filetype='XML' else filetype='JSON' /if
+ if filetype='XML' then
+  thetable='ERROR'
+  for name=v rowname=x do
+   if cols(v)=1 then
+    x[2]=x[1]
+    x[1]=n
+   /if
+   thetable=appends(thetable,x)
+  /for
+  return appends(tab,thetable) /return
+ else
+  thejson=''
+  thearray='ERROR'
+  thetable='ERROR'
+  for name=v rowname=x do
+   if cols(v)=1 then
+    x[2]=x[1]
+    x[1]=n
+   /if
+
+   if cols(v)=2 then
+    x[3]=x[2]
+    x[2]=x[1]
+    x[1]=n
+   /if
+
+
+   if n=x[1] then
+    thejson=showwith('',thejson,',')+jsonit(x)
+   else
+    thetable=appends(thetable,x)
+   /if
+  /for
+  x='ERROR'
+  x[1]=n
+  if thejson='null' then thejson='' /if
+  x[2]='['+thejson+']'
+  x[3]='flattened'
+  return appends(appends(tab,x),thetable) /return
+ /if
+/function
+
+
+
+
+function DLLTableNode(n,v) locals filetype,x,a do
+ if tag_filetype='XML' then filetype='XML' else filetype='JSON' /if
+ x='ERROR' x[1]=n x[2]=ArrayAs(v,filetype) x[3]='flattened' x[4]=cols(v) x[5]=rows(v)
+ return x /return
+/function
+
+function DLLappendTableNode(tab,n,v) do
+ return appends(tab,tableNode(n,v)) /return
+/function
+
+
+
+
+
+function DLLappendArray(a,c) locals x,r do
+ x=node('document',c)
+ c='ERROR' c[1]=x[2] c[2]=x[3]
+ return appends(a,c) /return
+/function
+
+
+
+
+
+
+
+
+
+function nodeALL(n,v) locals filetype,x,a do
+ if tag_filetype='XML' then filetype='XML' else filetype='JSON' /if
+ if v='ERROR' then
+  x='ERROR' x[1]=n x[2]='{}' x[3]='flattened'
+ elif cols(v)>1 then
+  x='ERROR' x[1]=n x[2]=VariableAs(v,filetype) x[3]='flattened'
+ elif rows(v)>1 then
+  x='ERROR' x[1]=n x[2]=ArrayAs(v,filetype) x[3]='flattened'
+ else
+  x='ERROR' x[1]=n x[2]=v
+ /if
+ return x /return
+/function
+
+
+
+function nodeAttribs(n,v,attribs) locals x,filetype,atr,temp,attribcols,rendered do
+ if tag_filetype='XML' then filetype='XML' else filetype='JSON' /if
+ attribcols=cols(attribs)
+ if attribs<>'' and attribs<>'ERROR' and attribcols=1 then
+  attribs=replaceall(attribs+' ','"  ','" ')
+  attribs=ci_deltexttovar(attribs,'" ','="')
+  attribcols=cols(attribs)
+  rendered='TRUE'
+ else
+  rendered='FALSE'
+ /if
+ if attribs='' or attribs='ERROR' or attribcols>2 then
+  atr='ERROR'
+ else
+  if filetype='xml' then
+   atr=''
+   for name=attribs rowname=x do
+    if rendered='FALSE' then
+     x[2]=replaceall(replaceall(x[2],'&','&amp;'),'<','&lt;')
+    /if
+    atr=showwith('',atr,' ')+x[1]+'="'+replaceall(x[2],'"','&quot;')+'"'
+   /for
+  else
+   atr=''
+  /if
+  if filetype='json' then
+   if cols(v)=1 then
+    if v='' or v='ERROR' then
+     v='ERROR'
+    else
+     x='ERROR' x[1]=n x[2]=v
+     v=x
+    /if
+   /if
+   for name=a value=rows(attribs) to 1 step=-1 do
+    if rendered='TRUE' then attribs[2,a]=replaceall(replaceall(attribs[2,a],'&lt;','<'),'&amp;','&') /if
+    x='ERROR' x[1]='@'+attribs[1,a] x[2]=attribs[2,a]
+    v=appends(x,v)
+   /for
+   atr=''
+  /if
+ /if
+ return nodeAll(n+showwith(' ',atr,''),v) /return
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLattrib(a,v) do
+ return a+'="'+replaceall(replaceall(replaceall(v,'&','&amp;'),'<','&lt;'),'"','&quot;')+'" ' /return
+/function
+
+function DLLattribPrep(v) do
+ return replaceall(replaceall(replaceall(v,'&','&amp;'),'<','&lt;'),'"','&quot;') /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function VariableAs(vars,filetype) locals thevars,temp,x do
+ thevars=''
+ if filetype='xml' then
+  thevars=''
+  for name=vars rowname=x do
+   if x[3]='flattened' then
+    thevars=thevars+'<'+x[1]+showwith(' cols="',x[4],'"')+showwith(' rows="',x[5],'"')+'>'+x[2]+'</'+chopchopright(x[1],' ')+'>'
+   else
+    thevars=thevars+'<'+x[1]+'>'+replaceall(replaceall(x[2],'&','&amp;'),'<','&lt;')+'</'+chopchopright(x[1],' ')+'>'
+   /if
+  /for
+  temp=thevars
+ else # default to json /#
+  thevars=''
+  for name=vars rowname=x do
+   thevars=showwith('',thevars,',')+'"'+x[1]+'":'+jsonit(x)     
+  /for
+  temp='{'+showwith('',thevars,'')+'}'
+ /if
+ return temp /return
+/function
+
+function jsonit(x) locals j do
+   if x[3]='flattened' then
+    j=x[2]
+   else
+    if x[2]='ERROR' then
+     j='null'
+    elif x[2]='TRUE' then
+     j='true'
+    elif x[2]='FALSE' then
+     j='false'
+    elif isjsonnumber(x[2]) then
+     j=JSONescape(x[2])
+    elif getyear(addminutes(x[2],0))<>'ERROR' then
+     j='"'+JSONescape(moment(addminutes(x[2],0),'YYYY-MM-DDTHH:mm'))+'"'     
+    else
+     j='"'+JSONescape(x[2])+'"'
+    /if
+   /if
+ return j /return
+/function
+
+
+
+
+
+function ArrayAs(vars,filetype) locals thevars,temp,x, RN,E1,S1,LF1,CR1,AMP,Q1,A1,L1,G1 do
+ if filetype='XML' then
+
+ # 
+ #   outer=''
+ #   for name=vars rowname=x do
+ #    inner=''
+ #    for name=x colname=y do
+ #     inner=inner+'<col>'+replaceall(replaceall(y[1],'&','&amp;'),'<','&lt;')+'</col>'
+ #    /for
+ #    outer=outer+'<row>'+inner+'</row>'
+ #   /for
+ #   return outer /return
+ # 
+ #  The commented out code is easier to understand but is replaced with the faster code below
+ # 
+/#
+
+
+
+    RN=random(1000,9999)
+    E1='{'+RN+'_END_OF_LINE}'
+    S1='{'+RN+'_FIELD_SEPERATOR}'
+    LF1='{'+RN+'_LF}'
+    CR1='{'+RN+'_CR}'
+
+    AMP='&amp;'
+    Q1='&quot;'
+    A1='&apos;'
+    L1='&lt;'
+    G1='&gt'
+
+
+    temp=replace(tabletocsv(vars),'"','')
+    temp=replaceall(temp,'"'+lf+'"',E1)
+    temp=replaceall(temp,lf,LF1)
+    temp=replaceall(temp,'","',S1)
+    temp=replaceall(temp,'^"',Q1)
+    temp=left(temp,length(temp)-1)
+
+    temp=replaceall(temp,'&',AMP)
+    temp=replaceall(temp,'"',Q1)
+    temp=replaceall(temp,"'",A1)
+    temp=replaceall(temp,'<',L1)
+    temp=replaceall(temp,'>',G1)
+
+    temp=replaceall(temp,LF1,lf)
+    temp=replaceall(temp,CR1,cr)
+
+
+    temp=replaceall(temp,E1,'</col></row><row><col>')
+    temp=replaceall(temp,S1,'</col><col>')
+    temp='<row><col>'+temp+'</col></row>'
+
+    return temp /return
+
+
+
+
+
+
+
+
+
+
+ else
+
+
+ # 
+ #   outer=''
+ #   for name=vars rowname=x do
+ #    inner=''
+ #    for name=x colname=y do
+ #     inner=showwith('',inner,',')+'"'+JSONescape(y[1])+'"'
+ #    /for
+ #    if cols(x)>1 then
+ #     inner='['+inner+']'
+ #    /if
+ #    outer=showwith('',outer,',')+inner
+ #   /for
+ #   if rows(vars)>1 then
+ #    outer='['+outer+']'
+ #   /if
+ #   return outer /return
+ # 
+ #  The commented out code is easier to understand but is replace with the faster code below
+/#
+
+    temp=tabletocsv(vars)
+    temp=replaceall(temp,'"'+lf+'"','"],["')
+    temp=replaceall(temp,'\','\\')
+    temp=replaceall(temp,'/','\/')
+    temp=replaceall(temp,'^"','\"')
+    temp=replaceall(temp,lf,'\n')
+    temp=replaceall(temp,cr,'\r')
+    temp=replaceall(temp,ascii(8),'\b')
+    temp=replaceall(temp,ascii(9),'\t')
+    temp=replaceall(temp,ascii(12),'\f')
+    if temp='""' or temp='"ERROR"' then
+     temp="[]"
+    else
+     if cols(vars)=1 or rows(vars)=1 then
+      temp='['+temp+']'
+     else
+      temp='[['+temp+']]'
+     /if
+    /if
+    return temp /return
+
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLwebpush_nodes(vars) locals mimetype do
+ if tag_filetype='XML' then mimetype='application/xml' else mimetype='application/json' /if
+ webpush(push_nodes(vars),mimetype)
+/function
+
+
+
+
+
+function DLLpush_nodes(v) locals x,temp,fileformat,n do
+ if tag_filetype<>'XML' then fileformat='JSON' else fileformat=tag_filetype /if
+ if rows(v)=1 and cols(v)=1 then 
+  temp=v
+ else
+  temp=node('document',v)
+ /if
+ if fileformat='XML' then
+  x='<?xml version="1.0" encoding="UTF-8"?><'+temp[1,1]+showwith(' cols="',temp[4,1],'"')+showwith(' rows="',temp[5,1],'"')+'>'+temp[2,1]+'</'+chopchopright(temp[1,1],' ')+'>'
+ else
+  x=temp[2,1]
+ /if
+ return x /return
+/function
+
+
+
+

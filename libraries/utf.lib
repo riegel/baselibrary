@@ -1,0 +1,123 @@
+
+
+function makesafe(text,direction) do
+ # makesafe courtesy of Dan Wilcox /#
+ IF text != "" and text != "ERROR" THEN
+  if direction='RIGHT' then
+     WHILE GETASCII(RIGHT(text,1)) >= 127 DO
+        text = LEFT(text,LENGTH(text)-1)
+     /WHILE
+  /if
+  if direction='LEFT' then
+     WHILE GETASCII(LEFT(text,1)) >= 127 DO
+        text = RIGHT(text,LENGTH(text)-1)
+     /WHILE
+  /if
+ /IF
+ return text /return
+/function
+
+function DLLsafeTRIMRIGHT(text) do
+ text=TRIMRIGHT(text)
+ text=makesafe(text,'RIGHT')
+ return text /return
+/function
+
+function DLLsafeTRIMLEFT(text) do
+ text=TRIMLEFT(text)
+ text=makesafe(text,'LEFT')
+ return text /return
+/function
+
+function DLLsafeTRIM(text) do
+ text=trim(text)
+ text=makesafe(text,'LEFT')
+ text=makesafe(text,'RIGHT')
+ return text /return
+/function
+
+function DLLsafeLEFT(text,num) do
+ text=left(text,num)
+ text=makesafe(text,'LEFT')
+ return text /return
+/function
+
+function DLLsafeRIGHT(text,num) do
+ text=left(text,num)
+ text=makesafe(text,'RIGHT')
+ return text /return
+/function
+
+function DLLsafeMIDDLE(text,start,end) do
+ text=middle(text,start,end)
+ text=makesafe(text,'LEFT')
+ text=makesafe(text,'RIGHT')
+ return text /return
+/function
+
+
+
+
+
+
+
+function DLLasUTF(text) locals x,s,st,i,a do
+ x=1
+ st='ERROR'
+ while x<length(text)+1 do
+  i=getascii(middle(text,x,x))
+    if i<192 then s=1
+  elif i<224 then s=2
+  elif i<240 then s=3
+  elif i<248 then s=4
+  elif i<252 then s=5
+  elif i<254 then s=6
+  /if
+  a='ERROR'
+  a=middle(text,x,x+(s-1))
+  if st='ERROR' then st=a else st=append(st,a) /if
+  x=x+s
+ /while
+ return st /return
+/function
+
+
+function DLLmiddle_(text_UTF,s,e) do
+ return gettable(text_UTF,1,1,s,e) /return
+/function
+
+
+function DLLlength_(text_UTF) do
+ return rows(text_UTF) /return
+/function
+
+
+function DLLleft_(text_UTF,i) do
+ return gettable(text_UTF,1,1,1,i) /return
+/function
+
+
+function DLLright_(text_UTF,i) locals l do
+ l=rows(text_utf)
+ return gettable(text_UTF,1,1,l-i+1,l) /return
+/function
+
+
+function DLLreverse_(text_UTF,i) do
+ return reverserows(text_UTF) /return
+/function
+
+
+function DLLconcat_(text1_UTF,text2_UTF) do
+ return append(text1_UTF,text2_UTF) /return
+/function
+
+
+
+function DLLasText(text_UTF) locals text,x do
+ text=''
+ for name=x value=1 to rows(text_UTF) do
+  text=text+text_UTF[1,x]
+ /for
+ return text /return
+/function

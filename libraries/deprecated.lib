@@ -1,0 +1,104 @@
+function DLLci_parsehref(text) do
+ return ci_parsehrefall(text,'ERROR','ERROR') /return
+/function
+
+
+
+
+
+function DLLci_parsehrefall(text,winname,opt) locals tag,y,c,x,z,pop,p,q,r,s,hrf,nam,val,hgt,wid,datag,cl,tar,rel do
+ # this function takes an href and parses out popup="100,100" and replaces it with the correct popup code /#
+ tag=text
+ y=1 c=length(tag)
+ for name=x value=1 to c do
+  z=middle(tag,x,x)
+  if z='"' then if y=1 then y=0 else y=1 /if /if
+  if z=" " and y=1 then tag=left(tag,x-1)+"`"+right(tag,c-x) /if
+ /for
+ tag=split(tag,"`")
+ nam='ERROR'
+ datag='ERROR' cl='' tar='' rel=''
+ for name=tag rowname=x do
+  if count(x[1],"=")=0 and nam='ERROR' then nam=x[1] /if
+  if left(x[1],6)="popup=" then p=middle(x[1],7,length(x[1])) pop=replaceall(p,'"',"") /if
+  if left(x[1],5)="href=" then  q=middle(x[1],6,length(x[1])) hrf=replaceall(q,'"',"") /if # middle(x[1],6,length(x[1])) /#
+  if left(x[1],5)="name=" then  r=middle(x[1],6,length(x[1])) nam=replaceall(r,'"',"") /if
+  if left(x[1],6)="value=" then ajkl=x[1] s=middle(x[1],7,length(x[1])) val=replaceall(s,'"',"") /if
+  if left(x[1],4)="tag=" then p=middle(x[1],5,length(x[1])) datag=replaceall(p,'"',"") /if
+  if left(x[1],6)="class=" then cl=x[1] /if
+  if left(x[1],4)="rel=" then rel=x[1] /if
+  if left(x[1],7)="target=" then tar=x[1] /if
+ /for
+ if cl<>"" then cl=' '+cl /if
+ if tar<>"" then tar=' '+tar /if
+ if rel<>"" then rel=' '+rel /if
+ if datag='ERROR' then datag='' /if
+ if pop="ERROR" then
+  if nam="ERROR" or nam='' then
+   if count(hrf,'http:')>0 or count(hrf,'https:')>0 or count(hrf,'mailto:')>0 or count(hrf,'javascript:')>0 then
+    tag=^href="^+hrf+^" ^
+   elif count(hrf,'route:')=1 then
+    tag=^href="^+route(replace(hrf,'route:',''))+^" ^
+   else
+    tag=^href="^+ci_link1(hrf)+^" ^
+   /if
+   return tag+datag+cl+tar+rel /return
+  else
+   tag=^href="^+ci_link3(hrf,nam,val)+^" ^
+  /if
+  text=replace(text,"popup="+p,'')
+  text=replace(text,"href="+q,'')
+  text=replace(text,"name="+r,'')
+  text=replace(text,"value="+s,'')
+  text=replaceall(tag+text,'  ',' ')
+  return text+datag+cl+tar+rel /return
+ else
+  wid=split(pop,"x") if rows(wid)<>2 then wid=split(pop,",") /if
+  if rows(wid)=2 then
+   hgt=wid[1,2] wid=wid[1,1]
+  else
+   if hgt="ERROR" then hgt=wid[1,1] wid=wid[1,1] /if
+  /if
+ /if
+ if isinteger(wid) and isinteger(hgt) then else wid=500 hgt=350 /if
+ if winname='ERROR' then winname=hrf /if
+ winname=replaceall(replaceall(replaceall(aestivafilename(winname),'.',''),'/',''),'-','')
+ if opt='ERROR' then opt='status=yes,scrollbars=yes,resizable=yes,left=150' /if
+ if nam="ERROR" then
+  if count(hrf,'http:')>0 or count(hrf,'https:')>0 or count(hrf,'mailto:')>0 then
+
+
+   tag=^href="javascript:windowHandle=window.open('^+hrf+^', '^+winname+^', 'width=^+wid+^,height=^+hgt+^,^+opt+^');windowHandle.focus();"^
+ # 
+ #    tag=^href="javascript:windowHandle=window.open('^+hrf+^');windowHandle.focus();"^
+/#
+
+
+  else
+
+   tag=^href="javascript:windowHandle=window.open('^+ci_link1(hrf)+^', '^+winname+^', 'width=^+wid+^,height=^+hgt+^,^+opt+^');windowHandle.focus();"^
+
+ # 
+ #    tag=^href="javascript:windowHandle=window.open('^+ci_link1(hrf)+^');windowHandle.focus();"^
+/#
+
+
+  /if
+ else
+
+  tag=^href="javascript:windowHandle=window.open('^+ci_link3(hrf,nam,val)+^', '^+winname+^', 'width=^+wid+^,height=^+hgt+^,^+opt+^');windowHandle.focus();"^
+
+ # 
+ #   tag=^href="javascript:windowHandle=window.open('^+ci_link3(hrf,nam,val)+^');windowHandle.focus();"^
+/#
+
+
+
+ /if
+ text=replace(text,"popup="+p,'')
+ text=replace(text,"href="+q,'')
+ text=replace(text,"name="+r,'')
+ text=replace(text,"value="+s,'')
+ text=replaceall(tag+text,'  ',' ')
+ return text+datag+cl+tar+rel /return
+/function

@@ -1,0 +1,286 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+
+
+
+
+
+
+ # This commented out code affects both .htaccess and here.
+ # There is a <256 character limitation with HTML/OS for the tag sent so we get the tag from the Apache variable and do not send it to HTML/OS
+ # RewriteRule ^(.*)$ /cgi-bin/htmlos/%1/_/$1 [L]
+ # We do not send the tag along to htmlos because it is limited in length so we can't use SCRIPT_NAME / PATH_INFO,
+ # instead we use REQUEST_URI. Unfortunatly REQUEST_URI isn't supported with IIS
+ # So on IIS the tag request will be limited to <256 characters.
+ # URL=getenv('SCRIPT_NAME')+getenv('PATH_INFO')
+ # DO NOT BE TEMPTED TO USE GOTO's HERE.
+ #
+ #
+ # elif count(URL,'?_escaped_fragment_=')=0 and count(URL,'_escaped_fragment_')>0 then
+ #  goto error(404)
+ #
+ #
+ # Eventually I will deprecate parsetag
+ #
+ # tag=parsetag(tag)
+ # tag_           = tagresults_
+ # tag_path       = tagresults_path
+ # tag_vars       = tagresults_vars
+ # tag_length     = tagresults_length
+ #
+ #
+ #
+ # if tag_[1]<>'' and tag_[1]<>'ERROR' and tag_[1]<>'/' and tag_[1]<>cginame then
+ #  if isfile('/'+tag_[1])='TRUE' then goto error(409) /if
+ #  if isdir( '/'+tag_[1])='TRUE' then goto error(409) /if
+ # /if
+ #
+ #
+ #
+ # ---------------------------------------------------------------------------------------------------------
+ #  route URLS have 2 possible forms...
+ #  http://example.com/blog/show/25?id=52&name=terry                                      (using cookies)
+ #    -or-
+ #  http://example.com/0012436.3.059416195110177959/_/blog/show/25?id=52&name=terry       (cookies disabled)
+ #  ---------------------------------------------------------------------------------------------------------
+ #
+ #  tag         ==>  /video/show/25?id=52&name=terry      <--- This is a text string
+ #                   +-------------+
+ #  tag_        ==>  |video|show|25|                      <--- This is a table
+ #                   +-------------+
+ #  tag_length  ==>  3                                    <--- cols(tag_)
+ #
+ #  tag_path    ==>  /video/show/25
+ #
+ #  tag_vars    ==>  id=52&name=terry
+ #
+ #  route('/video/show/25?id=52&name=terry') <-- Use this inplace of getlinkN()
+ #
+ #  route() is found in /system/clearimage/DLL.lib
+/#
+
+
+
+
+
+
+function ROUTE_GET_URL() locals URL do
+ if count(sysstartname,'.EXE')>0 then
+  URL=getenv('SCRIPT_NAME')+getenv('PATH_INFO')
+  if getenv('QUERY_STRING')<>'ERROR' and getenv('QUERY_STRING')<>'' then
+   URL=URL+'?'+getenv('QUERY_STRING')
+  /if
+ else
+  URL=getenv('REQUEST_URI')
+ /if
+ return url /return
+/function
+
+
+
+function DLLroute_whatURI(varname) locals o,temp,url,session do
+ URL=ROUTE_GET_URL()
+ if count(URL,'/_/')>0 then
+  URL=replace(chopleft(URL,'/_/'),'/_','')
+ /if
+ if count(URL,'?_/')>0 then
+  URL=replace(replace(chopleft(URL,'?_/'),'?_',''),'&','?')
+ /if
+ if count(URL,'?_escaped_fragment_=')>0 then
+  URL=replaceall(replace(replace(replace(url,'?_escaped_fragment_=','#!'),'?','&'),'&','?'),'%2F','/')
+ /if
+ @varname=URL
+ o=setTagVars(varname)
+ return '' /return
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLparsetag(tag) locals t,x,a,m,temp do
+ m=split(tag,'?')
+ t=listtorow(m[1,1],'/')
+ tagresults_path=m[1,1]
+ tagresults_vars=m[1,2] if tagresults_vars='' then tagresults_vars='ERROR' /if
+ tagresults_=gettable(t,2+0,cols(t),1,1)
+ tagresults_length=cols(tagresults_)
+ return tag /return
+/function
+
+
+
+
+
+
+
+
+
+
+function DLLsetTagVars(jpnsyent2ed87bhgtqlskmcnuioz__tag) locals m,thePath,theVars,t,path,vars,scor,len,tlen,ttype do
+ m=split(@jpnsyent2ed87bhgtqlskmcnuioz__tag,'?')
+ thePath=m[1,1]
+ theVars=m[1,2]
+ if theVars='' then theVars='ERROR' /if
+ t=listtorow(thePath,'/')
+ theScor=gettable(t,2,cols(t),1,1)
+ tlen=cols(theScor)
+
+ if count(theScor[tlen],'.')=1 then
+  ttype=chopchopleft(theScor[tlen],'.')
+ else
+  ttype=''
+ /if
+
+
+
+
+ path=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_path'
+ vars=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_vars'
+ scor=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_'
+  len=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_length'
+ ftyp=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_filetype'
+ type=jpnsyent2ed87bhgtqlskmcnuioz__tag+'_type'
+
+ @path=thePath
+ @vars=theVars
+ @scor=theScor
+ @len =tlen
+ @ftyp=ttype
+ if theScor[1,1]=cginame and (theScor[2,1]=SYSSTARTNAME or theScor[2,1]=SYSHTMLOSNAME) and count(theScor[3,1],'.')=2 then
+  @type='htmlos'
+ else
+  @type='route'
+ /if
+
+ return '' /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLforensics(t) do
+ forensics=t
+ goto '/apps/route/forensics.html'
+ return '' /return
+/function
+
+
+
+
+
+
+
+
+
+
+function get_request_type_from(r) locals s,t do
+   #
+   # Evaluate a segment to see if it looks like this...
+   # 0052.3.2061318694515599884
+   # 0052.3.2061318694515599884?id=53
+   # 1    2 3
+  /#
+  r=chopchopright(r,'?')
+  if count(r,'.')<>2 then
+   s='STARTLINK'
+  else
+   t=split(r,'.')
+   if isinteger(1*t[1,1])         and
+      isinteger(1*t[1,2])         and
+      isinteger(1*left(t[1,3],6)) and
+      length(t[1,3])>7            then
+    if HTMLOS.PAGE='ERROR' then
+     s='RESTART'
+    else
+     s='GETLINK'
+    /if
+   else
+    s='STARTLINK'
+   /if
+  /if
+ return s /return
+/function
+
+
+
+
+
+
+function DLLget_request_type() locals URL,u,i,x do
+  # ISAJAX          =    TRUE/FALSE
+  # ISROUTE         =    TRUE/FALSE
+  # INCEPTION       =    RESTART/GETLINK/STARTLINK
+ /#
+ ISROUTE='FALSE'
+ ISAJAX='FALSE'
+ if count(getenv('QUERY_STRING'),'ajaxrequest=true')>0   or count(sysstdin,'ajaxrequest=true')>0   or
+    count(getenv('QUERY_STRING'),'ajaxrequest=iframe')>0 or count(sysstdin,'ajaxrequest=iframe')>0 or
+    count(getenv('QUERY_STRING'),'ajax.clicked=')>0      or count(sysstdin,'ajax.clicked=')>0
+ then
+    ISAJAX='TRUE'
+ /if
+ # startlink? / restart? /#
+ if count(sysstartname,'.EXE')>0 then
+  URL=getenv('SCRIPT_NAME')+getenv('PATH_INFO')+showwith('?',getenv('QUERY_STRING'),'')
+ else
+  URL=getenv('REQUEST_URI')
+ /if
+ #  /cgi-bin/start/apps/playground/pusher/projected_screen2.ht   /#
+ #  /cgi-bin/start/0052.3.2061318694515599884                    /#
+ # ------------------------------------------------------------- /#
+ #   2       3     4                                             /#
+ u=split(url,'/')
+
+ if u[1,3]=sysstartname or u[1,3]=syshtmlosname then
+  if count(URL,'?_/')=1 or count(URL,'/_/')=1 then ISROUTE='TRUE' /if
+  i=u[1,4] # inception=get_request_type_from(u[1,4]) /#
+ else
+  u=split(getenv('PATH_INFO'),'/')
+  i=u[1,2] # inception=get_request_type_from(u[1,2]) /#
+  ISROUTE='TRUE'
+ /if
+ if page='/apps/route/startlink.html' then
+  inception=get_request_type_from(i)
+  if tag='ERROR' and inception='STARTLINK' then tag=getenv('PATH_INFO') /if
+ /if
+ x='ERROR'
+ x[1,1]='ROUTE'      x[2,1]=ISROUTE
+ x[1,2]='AJAX'       x[2,2]=ISAJAX
+ x[1,3]='INCEPTION'  x[2,3]=INCEPTION
+ return x /return
+/function
+
+
+
+
+
+
+
+
+

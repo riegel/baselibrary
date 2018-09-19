@@ -1,0 +1,117 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+function DLLci_identifycache(image) locals x,y,z,img,imid do
+ return ci_identifycache2(image,1) /return
+/function
+
+
+
+
+
+function DLLci_identifycache2(image,s) locals x,y,z,img,imid do
+ img=image
+ image=ci_extract(image)
+ if image[3]<>"" then image[6]="" /if
+ if count(image[3],ci_prefs[1,4])=1 then
+  imid=image[1]+image[6]+image[2]+image[3]+image[4]+".imid"
+ else
+  imid=image[1]+image[6]+image[2]+ci_prefs[1,4]+image[3]+image[4]+".imid"
+ /if
+ if s=1 then
+  if isfile(imid) then
+   copy file=imid ts="," to x /copy
+   if not(isfile(x[10])) then
+    x=ci_rmfile(imid)
+   else
+    return x /return
+   /if
+  /if
+ /if
+ x=ci_identifyalloptions(img,fileinfo(img))
+ if x[9]=1 then
+  if ci_prefs[1,12]="TRUE" then
+   z=x[10]
+   y=ci_extract(x[10])
+   if y[4]="" and x[3]<>"ERROR" then y[4]="."+lower(x[3]) /if
+   if image[3]="" then
+    x[10]=y[1]+image[6]+y[2]+y[3]+"TEMP-"+random(1000,9999)+y[4]
+    y=ci_cpfile(z,x[10])
+   else
+    x[10]=y[1]+image[6]+y[2]+y[3]+"-"+random(1000,9999)+y[4]
+    y=ci_mvfile(z,x[10])
+   /if
+  /if
+  copy x to file=imid ts="," /copy
+ /if
+ return x /return
+/function
+
+
+
+
+
+function DLLci_identifyalloptions(image,fi) locals g,di,ci_temp,ci_root do
+ g[1]="ERROR: "# Image Width                 /#
+ g[2]=""       # Image Height                /#
+ g[3]=""       # Image type                  /#
+ g[4]=fi[4]    # FILE or DIR                 /#
+ g[5]=fi[5]    # PUBLIC, PRIVATE, or MIRROR  /#
+ g[6]=fi[2]    # File Size                   /#
+ g[7]=fi[3]    # Modification Date           /#
+ g[8]="FALSE"  # See g[1] for ERROR if FALSE /#
+ g[9]=0        # 0-Not Defined 1-Ok 2-ImageNotIdentified 3-FileIsDirectory 4-FileNotFound 5-DirectoryNotFound 6-SystemCommandDisabled /#
+ g[10]=image   # Echo image back             /#
+ g[11]=fi[11]  # Other functions fill this in/#
+ if fi[4]="FILE" then
+  if fi[5]="PRIVATE" then ci_root=htmlos.conf.HTMLOSPrivate+'/' else ci_root=htmlos.conf.DocumentPath /if
+  ci_temp=syscall('ImageServices:000',ci_prefs[1,6]+' -format "<x>%w</x> <y>%h</y> <m>%m</m>" '+ci_root+image)
+  g[11]=ci_prefs[1,6]+' -format "<x>%w</x> <y>%h</y> <m>%m</m>" '+ci_root+image
+  if ci_temp="DISABLED" then
+   g[1]="ERROR: System Command is disabled"
+   g[9]=6
+  else
+   g[1]=xmlgetvalue(ci_temp,"<x[1]>")
+   g[2]=xmlgetvalue(ci_temp,"<y[1]>")
+   g[3]=xmlgetvalue(ci_temp,"<m[1]>")
+   if isinteger(g[1]) and isinteger(g[2]) then 
+    g[8]="TRUE"
+    g[9]=1
+   else
+    g[1]="ERROR: Image ("+image+") Not identified"
+    g[9]=2
+   /if
+  /if
+ elif fi[4]="DIR" then
+  g[1]="ERROR: Not a file (file is a directory)"+image
+  g[9]=3
+ else
+  if isdir(dirname(image)) then
+   g[1]="ERROR: File Not Found"
+   g[9]=4
+  else
+   g[1]="ERROR: Directory Not Found"
+   g[9]=5
+  /if
+ /if
+ return g /return
+/function
+
+
+
+
+
+function DLLci_identify(image) locals ci_temp,x do
+ ci_temp=ci_timing("B3")
+ if left(image,1)<>"/" then image=dirname(page)+image /if
+ x=ci_identifycache(image)
+ ci_temp=ci_timing("E3")
+ return x /return
+/function

@@ -1,0 +1,21 @@
+if count(sysstartname,'.EXE')>0 then
+ RD2GTAMP1=''
+ HELVETICA_FONT='Arial'
+else
+ RD2GTAMP1=' 2>&1'
+ HELVETICA_FONT='Helvetica'
+/if
+
+if secretusernum='ERROR' then secretusernum=random(1000000,9999999) /if
+
+if ci_prefs='' or ci_prefs='ERROR' or ci_prefs[1,11]='' then ci_prefs[1,11]='.TEMP/' /if
+
+idgenDB="/system/clearimage/database/"
+historydb='/apps/dbeditor/history/'
+statedir='/apps/login/state/'
+amazonTEMP='/upload/'
+login_logs='/apps/login/logs/'
+allow.conf='/system/conf/allow.conf'
+src0='/*#'
+route_digit='' # If this changes be sure to also regenerate .htaccess to include it. /#
+rsa_keypath='/apps/api/keymanager/keys/'

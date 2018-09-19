@@ -1,0 +1,86 @@
+
+function DLLaddunittest(test,description,code) locals temp,ID do
+ if isfile('/apps/unittests/unittests.conf') then
+  temp=dbsearch('/apps/unittests/unittests','TEST="'+test+'"',1,1000)
+  if tagresults[5,1]=0 then
+   ID=idgen()
+   dbadd('/apps/unittests/unittests')
+  else
+   ID=temp[2,1]
+   dbedit('/apps/unittests/unittests',temp[1,1])
+  /if
+ else
+  return 'ERROR: UnitTests Not Installed' /return
+ /if
+/function
+
+
+
+function DLLgetunittest(testtorun) locals x,temp do
+ if isfile('/apps/unittests/unittests.conf') then
+  temp=dbsearch('/apps/unittests/unittests','TEST="'+testtorun+'"',1,1000)
+  if tagresults[5,1]=0 then
+   x='ERROR: Unit Test not found for "'+testtorun+'"'
+  else
+   x=delcol(temp,1)
+  /if
+  return x /return
+ else
+  return 'ERROR: UnitTests Not Installed' /return
+ /if
+/function
+
+
+
+function DLLrununittest(testtorun) locals x,temp do
+ temp=getunittest(testtorun)
+ if left(temp[1,1],5)='ERROR' then 
+  return temp /return
+ else
+  x='ERROR'
+  $(temp[4])
+  if x='ERROR' or x='' then x[1]='FAIL' x[2]='Unit Test Failure' /if
+  tagresults=temp[4]
+  return x /return
+ /if
+/function
+
+
+
+
+function DLLunittest_cmd(c,a,b) locals x do
+ x='ERROR' x[1]=a x[2]=b
+ return appends(c,x) /return
+/function
+
+function DLLunittest_runcommands(commands) locals x,y,result,temp,doit,d,fail do
+ result='ERROR'
+ for name=commands rowname=x do
+  if x[2]<>'COMMENT' then
+   temp='-'
+   $('doit='+x[1])
+   if doit=x[2] then
+    if length(doit)>50 then d=left(doit,50)+'...' else d=doit /if
+    d=replaceall(replaceall(d,lf,' '),cr,'')
+    y='ERROR' y[1]='PASS' y[2]=x[1]+'="'+d+'"'
+    result=appends(result,y)
+   else
+    fail='TRUE'
+    y='ERROR' y[1]='FAIL' y[2]=x[1]+'="'+doit+'" expected "'+x[2]+'"'
+    result=appends(result,y)
+   /if
+  else
+    y='ERROR' y[1]='#' y[2]=UPPER(x[1])
+    result=appends(result,y)
+  /if
+ /for
+ x='ERROR'
+ if fail='TRUE' then
+  y='ERROR' y[1]='FAIL' y[2]='At least one test failed'
+  result=appends(y,result)
+ else
+  y='ERROR' y[1]='PASS' y[2]='All tests passed'
+  result=appends(y,result)
+ /if
+ return result /return
+/function

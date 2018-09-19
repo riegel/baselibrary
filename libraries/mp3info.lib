@@ -1,0 +1,304 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+#  This library relies on the system command being able to access mp3info and id3v2 executables.
+   If it can't access these files everything
+
+   FUNCTIONS AVAILABLE:
+   1.  mp3_filelist(dir) - More efficient that mp3_fileinfo as it calls several at once
+   2.  mp3_fileinfo(file)
+   3.  mp3_writeinfo(fi) - fi is a table in the format returned by mp3_fileinfo
+   4.  mp3_getlength(file)
+
+   Expect file info columns to look like...
+   1. Filename
+   2. Filesize
+   3. Last Modified Date
+   4. "FILE"
+   5. "PUBLIC", "PRIVATE", or "MIRROR"
+   6. Path to Filename
+   7. "FILE"
+   8. DEPRECATED (used to be sync results)
+   9. UNUSED
+  10. TYE, TYER - Year YYYY
+  11. TDA, TDAT - Date DDMM
+  12. TT2, TIT2 - Title
+  13. TIM, TIME - Time HHMM
+  14. TP1, TPE1 - Speaker/Author/Artist
+  15. TT3, TIT3 - Scripture Passage
+  16. TAL, TALB - Series
+  17. ULT, USLT - Description
+  18. UNUSED
+  19. UNUSED
+  20. COM, COMM - (ClearImageKeywords) Keywords
+  21. COM, COMM - (ClearImageAudio) Audio
+  22. COM, COMM - () Other Comments
+  23. COM, COMM - (ClearImageServiceName) SS, BSH, AM, PM, WED, or the military hour of the day
+  24. COM, COMM - (ClearImageLength) HH:MM:SS
+/#
+
+id3v2='usr/bin/mid3v2'
+
+
+
+# I need a general way of knowing if I can use id3v2/#
+if mp3_id3v2='ERROR' then
+ mp3_id3v2=syscall('MP3id3v3 Available?',id3v2) if left(mp3_id3v2,5)='Usage' then mp3_id3v2='TRUE' else mp3_id3v2='FALSE' /if
+/if
+
+
+
+
+
+function DLLmp3_filelist(dir) locals x,y,z,a,b,c,i,j,pri,pub do
+ if left(dir,1)<>"/" then dir=dirname(page)+dir /if
+ a=filelist(dir)
+ if mp3_id3v2='TRUE' then
+  for name=a rownum=x do
+   a[6,x]=dir
+  /for
+  pri=getcoleq(a,5,'PRIVATE')
+  pub=append(getcoleq(a,5,'PUBLIC'),getcoleq(a,5,'MIRROR'))
+  y='' b='' c=0
+
+  # Iterate through PRIVATE results, make system call on every 11 to reduce calls to system /#
+  for name=x value=1 to rows(pri) do
+   if c/11=floor(c/11) then b=b+syscall('mp3FileLister',id3v2+' -l'+y)+lf y='' /if
+   y=y+' '+htmlos.conf.HTMLOSPrivate+'/'+dir+'/'+pri[1,x]
+   c=c+1
+  /for
+  b=b+syscall('mp3FileLister',id3v2+' -l'+y)+lf
+
+  # Iterate through PUBLIC results, make system call on every 11 to reduce calls to system /#
+  for name=x value=1 to rows(pub) do
+   if c/11=floor(c/11) then b=b+syscall('mp3FileLister',id3v2+' -l'+y)+lf y='' /if
+   y=y+' '+htmlos.conf.DocumentPath+dir+'/'+pub[1,x]
+   c=c+1
+  /for
+  b=b+syscall('mp3FileLister',id3v2+' -l'+y)+lf
+
+
+return viewsource(b) /return
+
+
+  # Ok, now b contains all the results from this directory /#
+  # So now we can parse it to fill in the file info /#
+  b=split(b,'id3v2')
+  c='ERROR'
+  for name=b rowname=x do
+   if left(x[1],4)=' tag' then
+    i=split('id3v2'+x[1],lf)
+    j[1]=replaceall(reverse(replaceall(replaceall(chopright(reverse(i[1,1])," ")," ",""),":","")),'//','/')
+    j[2]=reverse(replace(chopright(reverse(j[1]),"/"),"/",""))
+    z=1
+    for name=a rowname=y do
+     if j[2]=y[1] then
+      c=getmp3tags(i,y)
+      for name=q value=1 to 30 do
+       if c[q]<>'' and c[q]<>'ERROR' then a[q,z]=c[q] /if
+      /for
+     /if
+     z=z+1
+    /for
+   /if
+  /for
+ else
+  a="ERROR: Missing mp3_id3v2"
+ /if
+ return a /return
+/function
+
+
+
+
+
+function DLLmp3_getlength(path) locals x,y,info,temp do
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ x=syscall('MP3GetLength','/usr/local/bin/mp3info -x '+ci_getpath(path)+RD2GTAMP1)
+ x=ci_deltexttovar(x,lf,': ')
+ info='ERROR'
+ for name=x rowname=y do
+  if trim(y[1])='Audio' then
+   info[2]=trim(y[2])
+  elif trim(y[1])='Length' then
+   temp='XX0000'+replaceall(trim(y[2]),':','')
+   info[1]=right(left(temp,length(temp)-2),4)
+  /if
+ /for
+ return info /return
+/function
+
+
+
+
+
+function DLLmp3_fileinfo(fil) locals x,i,y do
+ if left(fil,1)<>"/" then fil=dirname(page)+fil /if
+ a=fileinfo(fil)
+ if a='ERROR' then a[1,1]=fil a[2,1]='ERROR' a[3,1]='ERROR' a[4,1]='ERROR' a[5,1]='ERROR' /if
+ a[6,1]=reverse(replace(chopleft(reverse(a[1,1]),'/'),'/',''))
+ a[1,1]=replace(reverse(chopright(reverse(a[1,1]),'/')),'/','')
+ if mp3_id3v2='TRUE' and a[2,1]<>'ERROR' then
+  if a[2,1]<>'ERROR' then
+   x=syscall('mp3FileInfo',id3v2+' -l '+ci_getpath(fil))
+   i=split(x,lf)
+   y=getmp3tags(i,a)
+  else
+   y=a
+  /if
+ else
+   y=a
+ /if
+ return y /return
+/function
+
+
+
+
+
+function DLLmp3_writeinfo(i) locals x,y,z do
+ x='ERROR'
+ if rows(i)=1 then
+  x=mp3_writeinfo_single(i)
+ else
+  for name=i rowname=y do
+   z=mp3_writeinfo_single(i)
+   if x='ERROR' then x=z else x=append(x,z) /if
+  /for
+ /if
+ return x /return
+/function
+
+
+
+
+
+function mp3_writeinfo_single(i) locals fp,opt,temp do
+ # We write to the file and to the database /#
+ # Expect i to look like...
+   1. Filename
+   2. Filesize
+   3. Last Modified Date
+   4. "FILE"
+   5. "PUBLIC", "PRIVATE", or "MIRROR"
+   6. Path to Filename
+   7. UNUSED
+   8. UNUSED
+   9. UNUSED
+  10. TYE, TYER - Year YYYY
+  11. TDA, TDAT - Date DDMM
+  12. TT2, TIT2 - Title
+  13. TIM, TIME - Time HHMM
+  14. TP1, TPE1 - Speaker/Author/Artist
+  15. TT3, TIT3 - Scripture Passage
+  16. TAL, TALB - Series
+  17. ULT, USLT - Description
+  18. UNUSED
+  19. UNUSED
+  20. COM, COMM - (ClearImageKeywords) Keywords
+  21. COM, COMM - (ClearImageAudio) Audio
+  22. COM, COMM - () Other Comments
+  23. COM, COMM - (ClearImageServiceName) SS, BSH, AM, PM, WED, or the military hour of the day
+  24. COM, COMM - (ClearImageLength) HH:MM:SS
+ /#
+
+ opt=''
+ if i[10]<>'' and i[10]<>'ERROR' then opt=opt+' --TYER "'+mp3escape(i[10])+'"' /if
+ if i[11]<>'' and i[11]<>'ERROR' then opt=opt+' --TDAT "'+mp3escape(i[11])+'"' /if
+ if i[12]<>'' and i[12]<>'ERROR' then opt=opt+' --TIT2 "'+mp3escape(i[12])+'"' /if
+ if i[13]<>'' and i[13]<>'ERROR' then opt=opt+' --TIME "'+mp3escape(i[13])+'"' /if
+ if i[14]<>'' and i[14]<>'ERROR' then opt=opt+' --TPE1 "'+mp3escape(i[14])+'"' /if
+ if i[15]<>'' and i[15]<>'ERROR' then opt=opt+' --TIT3 "'+mp3escape(i[15])+'"' /if
+ if i[16]<>'' and i[16]<>'ERROR' then opt=opt+' --TALB "'+mp3escape(i[16])+'"' /if
+ if i[17]<>'' and i[17]<>'ERROR' then opt=opt+' --USLT "'+mp3escape(i[17])+'"' /if
+ if i[20]<>'' and i[20]<>'ERROR' then opt=opt+' --COMM "ClearImageKeywords:'+mp3escape(i[20])+':eng"' /if
+ if i[21]<>'' and i[21]<>'ERROR' then opt=opt+' --COMM "ClearImageAudio:'+mp3escape(i[21])+':eng"' /if
+ if i[22]<>'' and i[22]<>'ERROR' then opt=opt+' --COMM ":'+mp3escape(i[22])+':eng"' /if
+ if i[23]<>'' and i[23]<>'ERROR' then opt=opt+' --COMM "ClearImageServiceName:'+mp3escape(i[23])+':eng"' /if
+ if i[24]<>'' and i[24]<>'ERROR' then opt=opt+' --COMM "ClearImageLength:'+mp3escape(i[24])+':eng"' /if
+ fp=i[6]+'/'+i[1]
+ if mp3_id3v2='TRUE' and isfile(fp) then
+  temp1=syscall('MP3WriteTags',id3v2+' '+opt+' '+ci_getpath(fp)+RD2GTAMP1)
+ else
+  if mp3_id3v2='TRUE' then
+   temp1='ERROR: Missing File'
+  else
+   temp1='ERROR: Missing id3v2'
+  /if
+ /if
+ return temp1 /return
+/function
+
+
+
+
+
+function mp3escape(t) do
+ t=replaceall(t,":","--COLON--")
+ t=replaceall(t,'"','\"')
+ return trim(t) /return
+/function
+
+
+
+
+
+function mp3unescape(t) do
+ t=replaceall(t,"--COLON--",":")
+ return trim(t) /return
+/function
+
+
+
+
+
+function gettagcontent(a) locals d do
+ d=split(a,':') d=trim(d[1,rows(d)])
+ return mp3unescape(d) /return
+/function
+
+
+
+
+
+function getmp3tags(a,b) locals c,d,x,a1 do
+ b[7]='FILE' # set this to indicate this info came from the file and not the db /#
+ # This function is sent a - the results from a system call, and b - the fileinfo from a file
+   it returns an expanded fileinfo with other columns /#
+ for name=a rownum=c do
+  # For our purpose we only look for a few of the tags /#
+  if left(a[1,c],4)='TYE ' or left(a[1,c],5)='TYER ' then b[10]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TDA ' or left(a[1,c],5)='TDAT ' then b[11]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TT2 ' or left(a[1,c],5)='TIT2 ' then b[12]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TIM ' or left(a[1,c],5)='TIME ' then b[13]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TP1 ' or left(a[1,c],5)='TPE1 ' then b[14]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TT3 ' or left(a[1,c],5)='TIT3 ' then b[15]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TAL ' or left(a[1,c],5)='TALB ' then b[16]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='ULT ' or left(a[1,c],5)='USLT ' then b[17]=gettagcontent(a[1,c]) /if
+  if left(a[1,c],4)='TFT ' or left(a[1,c],5)='TFLT ' then b[18]=gettagcontent(a[1,c]) /if
+  # Reserve Cols 20-29 for comments /#
+  if left(a[1,c],4)='COM ' or left(a[1,c],5)='COMM ' then
+   # Ok we are looking for Clear Image Comments /#
+   d=split(a[1,c],':')
+   a1=''
+   for name=x value=3 to rows(d) do
+    a1=a1+d[1,x]+':'
+   /for
+   a1=left(a1,length(a1)-1)
+   d[1,2]=trim(replace(replace(chopright(d[1,2],')'),'(',''),')',''))
+   if d[1,2]="ClearImageKeywords" then b[20]=mp3unescape(a1) /if
+   if d[1,2]="ClearImageAudio" then b[21]=mp3unescape(a1) /if
+   if d[1,2]="" then b[22]=trim(a1) /if
+   if d[1,2]="ClearImageServiceName" then b[23]=mp3unescape(a1) /if
+   if d[1,2]="ClearImageLength" then b[24]=mp3unescape(a1) /if
+  /if
+ /for
+ return b /return
+/function

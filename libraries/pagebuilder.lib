@@ -1,0 +1,799 @@
+function DLLci_showps(psfile,w,h,dpi) locals temp,t,outfile do
+ outfile=psfile+'.png'
+ return DLLci_showpsALL(psfile,w,h,dpi,outfile) /return
+/function
+
+
+
+function DLLci_showpsALL(psfile,w,h,dpi,outfile) locals temp,t do
+ if fontdir='' or fontdir='ERROR' then fontdir='/apps/imageservices/fonts/' /if
+ temp=ci_rmtemp(outfile)
+ t=fileremove(outfile)
+ temp=syscall(i+' ci_savepages:001',ci_prefs[1,29]+' -sFONTPATH='+ci_pripath(fontdir)+' -sOutputFile='+ci_getpath(outfile)+' -sDEVICE=pngalpha -r'+dpi+' -dNOPAUSE -dBATCH -dDEVICEWIDTHPOINTS='+w+' -dDEVICEHEIGHTPOINTS='+h+' '+ci_getpath(psfile)+RD2GTAMP1)
+ return psfile+lf+'Dimensions: ('+w+' '+h+')'+lf+temp /return
+/function
+
+
+function DLLci_showeps(psfile,dpi) locals temp,t,eps,x,y,w,h,tempeps,outfile do
+ return ci_showepsALL(psfile,dpi,psfile+'.png') /return
+/function
+
+
+
+function ci_getepssize(psfile) locals eps,tempeps do
+# copy file=psfile to eps /copy                 /#
+# Using bintotext() instead                     /#
+# postscript sometimes contains binary previews /#
+  eps=bintotext(psfile)
+  tempeps=eps
+  eps=chopleft(eps,'%%BoundingBox:')
+  eps=chopright(eps,lf)
+  eps=replace(eps,'%%BoundingBox:','')
+  eps=trim(eps)
+  eps=split(eps,' ')
+  eps[1,5]=tempeps
+  return eps /return
+/function
+
+
+function DLLci_showepsALL(psfile,dpi,outfile) locals temp,t,eps,x,y,w,h,tempeps do
+ if right(psfile,4)='.eps' then
+  eps=ci_getepssize(psfile)
+  x=eps[1,1]    y=eps[1,2]
+  w=eps[1,3]-x  h=eps[1,4]-y
+  tempeps=eps[1,5]
+  psfiletemp=psfile+'.ps'
+  tempeps='(-'+x+' -'+y+' translate) == (X1,Y1 - X2,Y2) == (\%\% BOUNDINGBox: '+eps[1,1]+' '+eps[1,2]+' '+eps[1,3]+' '+eps[1,4]+') =='+lf+lf+replace(tempeps,'BOUNDINGBOX:',lf+'-'+x+' -'+y+' translate'+lf+'%% BOUNDINGBOX')+lf+lf+'showpage'
+  sysfixprivate(psfiletemp)
+ else
+  psfiletemp=psfile
+  w=612
+  h=792
+ /if
+ if fontdir='' or fontdir='ERROR' then fontdir='/apps/imageservices/fonts/' /if
+ temp=ci_rmtemp(outfile)
+ t=fileremove(outfile)
+ if not(isfile("/apps/imageservices/syscall/gs")) then
+  append 'INUSE BUILDING PNG '+ps to file="/apps/imageservices/syscall/gs" /append
+  temp=syscall(i+' ci_savepages:001',ci_prefs[1,29]+' -sFONTPATH='+ci_pripath(fontdir)+' -sOutputFile='+ci_getpath(outfile)+' -sDEVICE=pngalpha -r'+dpi+' -dNOPAUSE -dBATCH -dDEVICEWIDTHPOINTS='+w+' -dDEVICEHEIGHTPOINTS='+h+' '+ci_getpath(psfiletemp)+RD2GTAMP1)
+  t=sysrm("/apps/imageservices/syscall/gs")
+  if psfiletemp<>psfile then t=sysrm(psfiletemp) /if
+ /if
+ return psfile+lf+'Dimensions: ('+w+' '+h+')'+lf+temp /return
+/function
+
+
+
+
+
+function DLLci_makepdf(psfile) locals temp,t,eps,x,y,w,h,tempeps,outfile do
+ if right(psfile,4)='.eps' then
+# copy file=psfile to eps /copy                 /#
+# Using bintotext() instead                     /#
+# postscript sometimes contains binary previews /#
+  eps=bintotext(psfile)
+  tempeps=eps
+  eps=chopleft(eps,'BoundingBox:')
+  eps=chopright(eps,lf)
+  eps=replace(eps,'BoundingBox:','')
+  eps=trim(eps)
+  eps=split(eps,' ')
+  x=eps[1,1]    y=eps[1,2]
+  w=eps[1,3]-x  h=eps[1,4]-y
+  psfiletemp=psfile+'.ps'
+  tempeps='(-'+x+' -'+y+' translate) == (X1,Y1 - X2,Y2) == (\%\% BOUNDINGBox: '+eps[1,1]+' '+eps[1,2]+' '+eps[1,3]+' '+eps[1,4]+') =='+lf+lf+replace(tempeps,'BOUNDINGBOX:',lf+'-'+x+' -'+y+' translate'+lf+'%% BOUNDINGBOX')+lf+lf+'showpage'
+  copy tempeps to file=psfiletemp /copy
+  sysfixprivate(pstempfile)
+ else
+  psfiletemp=psfile
+  w=612
+  h=792
+ /if
+ outfile=psfile+'.pdf'
+ if fontdir='' or fontdir='ERROR' then fontdir='/apps/imageservices/fonts/' /if
+ temp=ci_rmtemp(outfile)
+ t=fileremove(outfile)
+ if not(isfile("/apps/imageservices/syscall/gs")) then
+  append 'INUSE BUILDING PNG '+ps to file="/apps/imageservices/syscall/gs" /append
+  temp=syscall(i+' ci_savepages:001',ci_prefs[1,29]+' -sFONTPATH='+ci_pripath(fontdir)+' -sOutputFile='+ci_getpath(outfile)+' -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dDEVICEWIDTHPOINTS='+w+' -dDEVICEHEIGHTPOINTS='+h+' '+ci_getpath(psfiletemp)+RD2GTAMP1)
+  t=sysrm("/apps/imageservices/syscall/gs")
+  if psfiletemp<>psfile then t=sysrm(psfiletemp) /if
+ /if
+ goto syspublicurl+outfile
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLci_savepages(width,height,ps,outfile,jpeg,pdf,i) locals temp,t do
+ if fontdir='' or fontdir='ERROR' then fontdir='/apps/imageservices/fonts/' /if
+ temp[1]="" temp[2]="" temp[3]="" temp[4]="" temp[5]=""
+ temp[1]=ci_rmtemp(outfile)
+ t=fileremove(outfile+'.pdf') temp[3]=t[1,1]
+ if jpeg="TRUE" or pdf="TRUE" then
+  copy ps to file=outfile+".ps" /copy
+  sysfixprivate(outfile+'.ps')
+  if jpeg="TRUE" and not(isfile("/apps/imageservices/syscall/gs")) then
+   append 'INUSE BUILDING PNG '+ps to file="/apps/imageservices/syscall/gs" /append
+   temp[2]=syscall(i+' ci_savepages:001',ci_prefs[1,29]+' -sFONTPATH='+ci_pripath(fontdir)+' -sOutputFile='+ci_getpath(outfile)+' -sDEVICE=png16m -r300 -dNOPAUSE -dBATCH -dDEVICEWIDTHPOINTS='+width+' -dDEVICEHEIGHTPOINTS='+height+' '+ci_getpath(outfile+'.ps')+RD2GTAMP1)
+   t=sysrm("/apps/imageservices/syscall/gs")
+  /if
+  if pdf="TRUE" and not(isfile("/apps/imageservices/syscall/gs")) then
+   append 'INUSE BUILDING PDF '+ps to file="/apps/imageservices/syscall/gs" /append
+   temp[4]=syscall(i+' ci_savepages:003',ci_prefs[1,29]+' -sFONTPATH='+ci_pripath(fontdir)+' -sOutputFile='+ci_getpath(outfile+'.pdf')+' -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dDEVICEWIDTHPOINTS='+width+' -dDEVICEHEIGHTPOINTS='+height+' '+ci_getpath(outfile+'.ps')+RD2GTAMP1)
+   t=sysrm("/apps/imageservices/syscall/gs")
+  /if
+ /if
+#
+ t=fileremove(outfile+'.ps')
+/#
+ temp[5]=t[1,1]
+ return temp /return
+/function
+
+
+
+
+
+
+
+
+
+function DLLpostscriptescape(filename) do
+ filename=replaceall(filename,'\','\\')
+ filename=replaceall(filename,'(','\(')
+ filename=replaceall(filename,')','\)')
+ return filename /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+function DLLci_psblock(s,z,filename,dops,doht) locals filename_cleaned,a,b,epswidth,epsheight,text,ps,pspage,image,t,nw,nh,x1,y1,em,emimage,
+ id,bordercolor,borderwidth,fillcolor,align,type,x,y,w,h,font,size,fontcolor,login,qz,i,cs2,txtalgn do
+
+
+ login='FALSE'
+
+
+ id=z[1]  bordercolor=right(repeat("F",6)+z[2],6) borderwidth=z[3]  fillcolor=right(repeat("F",6)+z[4],6)
+ align=upper(z[5])  type=z[6]
+ x=z[7] y=z[8] w=z[9] h=z[10]
+ font=z[12] size=z[13] fontcolor=right(repeat("F",6)+z[14],6)
+ if s="" or s="ERROR" then s=1 /if
+ if fillcolor="FFFFFX" then fillcolor="FFFFFE" /if
+
+ text=''
+ ps=''
+ em=''
+ i=0
+
+ if type="POSTSCRIPT" then
+  i=i+(w*h)
+  cs='position: absolute; background: #aaaaaa; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: none; font-size: '+h*s+'px;'
+  text=text+' <div style="'+cs+'"></div>'+lf
+  em=em+' <div style="'+cs+'"></div>'+lf
+  ps=ps+lf+z[2]+lf+lf
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if type="SCALETOFIT" or type="FIT" then
+  i=i+(w*h)
+
+
+
+  if doht='TRUE' then
+   if type="FIT" then
+    image='<img src="'+srcWidthHeight(filename,round(w*s),round(h*s),'FIT')+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+    emimage=image
+   elif type="SCALETOFIT" then
+    if right(path,4)='.eps' then
+     image=ci_img(filename,round(w*s),round(h*s),login)
+     emimage='<img src="'+ci_geturl(filename,round(w*s),round(h*s),"TRUE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+    else
+     if s<1 then
+      image=ci_img(filename,90,60,login)
+      image='<img src="'+urlprep(ci_tagresults[10])+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+      emimage='<img src="'+ci_geturl(filename,90,60,"FALSE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+     else
+      image=ci_img(filename,round(w*s),round(h*s),login)
+      image='<img src="'+urlprep(ci_tagresults[10])+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+      emimage='<img src="'+ci_geturl(filename,round(w*s),round(h*s),"TRUE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+     /if
+    /if
+   /if
+   if fillcolor="FFFFFE" then
+    cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+'; text-align: center;'
+   else
+    cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+'; text-align: center;'
+   /if
+   text=text+' <div style="'+cs+'">'+image+'</div>'+lf
+   em=em+' <div style="'+cs+'"><a href="'+syspublicurl+filename+'">'+emimage+'</a></div>'+lf
+  /if
+
+  if dops='true' then
+   if right(filename,4)='.eps' then
+    b=filename
+    temp=ci_getepssize(filename)
+    epswidth=temp[1,3] epsheight=temp[1,4] temp='ERROR'
+    a='OK'
+   else
+    b=ci_extract(filename) b=b[1]+b[6]+b[2]+ci_prefs[1,4]+b[4]+'.eps'
+    if isfile(b) then else
+     # ci_prefs[1,7] is the path to convert /#
+     temp=syscall('block:001',ci_prefs[1,7]+' '+ci_getpath(filename)+' '+ci_getpath(b))
+    /if
+    a=ci_identify(b) epswidth=a[1] epsheight=a[2]
+    if left(a[1],5)="ERROR" then a='ERROR' else a='OK' /if
+   /if
+   if left(a[1],5)<>"ERROR" then
+    ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> ('+align+') ('+type+') '+x+' '+y+' '+w+' '+h+' '+epswidth+' '+epsheight+' ('+ci_getpath(b)+') () 0 <000000> PlaceObject'+lf
+   else
+    ps=ps+'<'+bordercolor+'> '+borderwidth+' <DDDDDD> () (box) '+x+' '+y+' '+w+' '+h+' () () () () () () PlaceObject'+lf
+   /if
+  /if
+
+
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if type="CLIPTOFIT" or left(type,4)='CROP' then
+  i=i+(w*h)
+
+  if doht='TRUE' then
+   if left(type,4)='CROP' then
+    image='<img src="'+srcWidthHeight(filename,round(w*s),round(h*s),type)+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+    emimage=image
+   elif type="CLIPTOFIT" then
+    if right(path,4)='.eps' then
+     image=ci_img(filename,round(w*s),round(h*s),login)
+     image='<img src="'+urlprep(ci_tagresults[10])+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+     emimage='<img src="'+ci_geturl(filename,round(w*s),round(h*s),"TRUE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+    else
+     if s<1 then
+      image=ci_img(filename,90,60,login)
+      image='<img src="'+urlprep(ci_tagresults[10])+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+      emimage='<img src="'+ci_geturl(filename,90,60,"FALSE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+     else
+      image=ci_imgcrop(filename,round(w*s),round(h*s),login,align,login)
+      image='<img src="'+urlprep(ci_tagresults[10])+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+      emimage='<img src="'+ci_geturl(filename,round(w*s),round(h*s),"TRUE")+'" border="0" style="width:'+w*s+'px; height:'+h*s+'px;">'
+     /if
+    /if
+   /if
+   if fillcolor="FFFFFE" then
+    cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+   else
+    cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+   /if
+   text=text+' <div style="'+cs+'">'+image+'<!--'+b+'--></div>'+lf
+   em=em+' <div style="'+cs+'"><a href="'+syspublicurl+filename+'">'+emimage+'</a></div>'+lf
+  /if
+
+  if dops='true' then
+   if right(filename,4)='.eps' then
+    b=filename
+    temp=ci_getepssize(filename)
+    epswidth=temp[1,3] epsheight=temp[1,4] temp='ERROR'
+    a='OK'
+   else
+    b=ci_extract(filename) b=b[1]+b[6]+b[2]+ci_prefs[1,4]+b[4]+'.eps'
+    if isfile(b) then 
+    else
+     # ci_prefs[1,7] is the path to convert /#
+     temp=syscall('block:001',ci_prefs[1,7]+' '+ci_getpath(filename)+' '+ci_getpath(b))
+    /if
+    a=ci_identify(b) epswidth=a[1] epsheight=a[2]
+    if left(a[1],5)="ERROR" then a='ERROR' else a='OK' /if
+   /if
+   if a='OK' then
+    ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> ('+align+') ('+type+') '+x+' '+y+' '+w+' '+h+' '+epswidth+' '+epsheight+' ('+ci_getpath(b)+') () 0 <000000> PlaceObject'+lf
+   else
+    ps=ps+'<'+bordercolor+'> '+borderwidth+' <DDDDDD> () (box) '+x+' '+y+' '+w+' '+h+' () () () () () () PlaceObject'+lf
+   /if
+  /if
+
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if type="BOX" then
+  if fillcolor="FFFFFE" then
+   cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+  else
+   cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+  /if
+  text=text+' <div style="'+cs+'"></div>'+lf
+  em=em+' <div style="'+cs+'"></div>'+lf
+  ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> () ('+type+') '+x+' '+y+' '+w+' '+h+' () () () () () () PlaceObject'+lf
+ /if
+
+
+
+
+
+ if type="LINE" then
+  qz='ERROR'
+  if borderwidth=0 then borderwidth=1 qz=1 /if
+
+  cs='position: absolute; width: '+w*s+'px; height: 1px; left: '+x*s+'px; top: '+y*s+'px; background-color: #'+fillcolor+';'
+
+  if qz=1 then borderwidth=0 /if
+  text=text+' <div style="'+cs+'"></div>'+lf
+  em=em+' <div style="'+cs+'"></div>'+lf
+  ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> () ('+type+') '+x+' '+y+' '+w+' '+h+' () () () () () () PlaceObject'+lf
+ /if
+
+
+ if type="TEXT" then
+  if z[15]='ALLOW' then else
+   filename_cleaned=replaceall(filename,"<br>","{{BREAK}}")
+   filename_cleaned=replaceall(filename_cleaned,"<","&lt;")
+   filename_cleaned=replaceall(filename_cleaned,"{{BREAK}}","<br>")
+   filename_cleaned=replaceall(filename_cleaned,"&","&amp;")
+  /if
+  if align='CENTER' or align='MIDDLE' then
+   txtalgn='margin-left: auto; margin-right: auto; text-align: '+align+';'
+  else
+   txtalgn='text-align: '+align+';'
+  /if
+  if fillcolor="FFFFFE" then
+   cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; '+txtalgn+' border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: #'+fontcolor+'; overflow:hidden;'
+  else
+   cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; '+txtalgn+' border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: #'+fontcolor+'; overflow: hidden;'
+  /if
+  text=text+' <div style="'+cs+'">'+replaceall(filename_cleaned,' ','&nbsp;')+'</div>'+lf
+  em=em+' <div style="'+cs+'">'+replaceall(filename_cleaned,' ','&nbsp;')+'</div>'+lf
+  ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> ('+align+') ('+type+') '+x+' '+y+' '+w+' '+h+' () () ('+postscriptescape(filename)+') ('+font+') '+size+' <'+fontcolor+'> PlaceObject'+lf
+ /if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if type="TEXTHERE" then
+  if z[15]='ALLOW' then else
+   filename=replaceall(filename,"<br>","{{BREAK}}")
+   filename=replaceall(filename,"<","&lt;")
+   filename=replaceall(filename,"{{BREAK}}","<br>")
+   filename=replaceall(filename,"&","&amp;")
+  /if
+  fillcolor="FFFFFE"
+  cs='position: relative; left: '+x*s+'px; top: '+y*s+'px; font: '+size*s+'px '+font+'; color: '+fontcolor+'; overflow: none;'
+  text=text+' <div style="'+cs+'">'+filename+'</div>'+lf
+  em=em+' <div style="'+cs+'">'+filename+'</div>'+lf
+  ps=ps+'<000000> 0 <FFFFFE> () ('+type+') '+x+' '+y+' 0 0 () () ('+postscriptescape(filename)+') ('+font+') '+size+' <'+fontcolor+'> PlaceObject'+lf
+ /if
+
+
+
+ if type="HTML" then
+  if fillcolor="FFFFFE" then
+   cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; text-align: '+align+'; border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: '+fontcolor+';'+lf
+  else
+   cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; text-align: '+align+'; border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: '+fontcolor+';'+lf
+  /if
+  text=text+' <div style="'+cs+'">'+filename+'</div>'+lf
+  em=em+' <div style="'+cs+'">'+filename+'</div>'+lf
+  ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> ('+align+') ('+type+') '+x+' '+(y+size)+' '+w+' '+h+' () () ('+postscriptescape(filename)+') ('+font+') '+size+' <'+fontcolor+'> PlaceObject'+lf
+ /if
+
+
+
+
+
+
+ if type="MULTILINE" then
+  filename_cleaned=filename
+  if z[15]='ALLOW' then else
+   filename_cleaned=replaceall(filename_cleaned,"<br>","{{BREAK}}")
+   filename_cleaned=replaceall(filename_cleaned,"<","&lt;")
+   filename_cleaned=replaceall(filename_cleaned,"{{BREAK}}","<br>")
+   filename_cleaned=replaceall(filename_cleaned,"&","&amp;")
+  /if
+  if count(align,'|')=1 then
+   a=replace(chopright(align,'|'),'|','')
+   b=replace(chopleft(align,'|'),'|','')
+  else
+   a=align
+   b='MIDDLE'
+  /if
+
+  if a='CENTER' or a='MIDDLE' then
+   txtalgn='margin-left: auto; margin-right: auto; text-align: '+align+';'
+  else
+   txtalgn='text-align: '+align+';'
+  /if
+  if fillcolor="FFFFFE" then
+   cs='position: absolute; width: '+w*s+'px; height: '+(size*1.2*s)+'px; left: '+x*s+'px;'
+   cs1=txtalgn+' border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: #'+fontcolor+'; overflow:hidden;'
+  else
+   cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+(size*1.2*s)+'px; left: '+x*s+'px;'
+   cs1=txtalgn+' border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: #'+fontcolor+'; overflow: hidden;'
+  /if
+
+
+
+
+  lines=split(filename,lf)
+  lines_cleaned=split(filename,lf)
+  total=rows(lines)
+
+  cursorX=x
+  cursorY=y
+
+  if b='MIDDLE' or b='CENTER' then
+   startY=(y-.2*size)+(.5*h)-(.5*1.2*total*size)
+  elif b='TOP' then
+   startY=y-.2*size
+  else
+   startY=y-.2*size+h-(1.2*total*size)
+  /if
+
+  for name=i value=1 to total do
+   cursorY=startY+(i-1)*(size*1.2)
+   top=' top: '+cursorY*s+'px;'
+   text=text+' <div style="'+cs+top+cs1+'">'+replaceall(lines_cleaned[1,i],' ','&nbsp;')+'</div>'+lf
+   em=em+' <div style="'+cs+top+cs1+'">'+replaceall(lines_cleaned[1,i],' ','&nbsp;')+'</div>'+lf
+   ps=ps+'<'+bordercolor+'> 0 <'+fillcolor+'> ('+align+') (TEXT) '+x+' '+cursorY+' '+w+' '+(size*1.2)+' () () ('+postscriptescape(lines[1,i])+') ('+font+') '+size+' <'+fontcolor+'> PlaceObject'+lf
+  /for
+
+
+  if borderwidth>0 then
+   if fillcolor="FFFFFE" then
+    cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+   else
+    cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; border: '+borderwidth*s+'px solid #'+bordercolor+';'
+   /if
+   text=text+' <div style="'+cs+'"></div>'+lf
+   em=em+' <div style="'+cs+'"></div>'+lf
+   ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> () ('+type+') '+x+' '+y+' '+w+' '+h+' () () () () () () PlaceObject'+lf
+  /if
+
+
+
+
+ /if
+
+
+
+
+
+
+
+
+
+
+
+ if type="PARAGRAPH" then
+  if z[15]='ALLOW' then else
+   filename=replaceall(filename,"<br>"," ")
+   filename=replaceall(filename,"<","&lt;")
+   filename=replaceall(filename,"&","&amp;")
+  /if
+  if fillcolor="FFFFFE" then
+   cs='position: absolute; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; text-align: '+align+'; border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: '+fontcolor+';'+lf
+  else
+   cs='position: absolute; background: #'+fillcolor+'; width: '+w*s+'px; height: '+h*s+'px; left: '+x*s+'px; top: '+y*s+'px; text-align: '+align+'; border: '+borderwidth*s+'px solid #'+bordercolor+'; font: '+size*s+'px '+font+'; color: '+fontcolor+';'+lf
+  /if
+  text=text+' <div style="'+cs+'">'+filename+'</div>'+lf
+  em=em+' <div style="'+cs+'">'+filename+'</div>'+lf
+  ps=ps+'<'+bordercolor+'> '+borderwidth+' <'+fillcolor+'> ('+align+') ('+type+') '+x+' '+y+' '+w+' '+h+' () () ('+postscriptescape(filename)+') ('+font+') '+size+' <'+fontcolor+'> PlaceObject'+lf
+ /if
+
+
+ a="ERROR"
+ a[1]=text if doht<>'true' then a[1]='not requested' /if
+ a[2]=ps   if dops<>'true' then a[2]='not requested' /if
+ a[3]=em   if doht<>'true' then a[3]='not requested' /if
+ a[4]=i
+ return a /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLci_pagebuilder(width,height,scalehtml,boxdefs,outfile,jpeg,pdf) do
+ return ci_pagebuilderALL('',0,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) /return
+/function
+
+
+function DLLci_printpage(margin,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) do
+ return ci_pagebuilderALL('',margin,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) /return
+/function
+
+
+function DLLci_pagebuilder_edit(pagebreakmarkup,margin,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) do
+ return ci_pagebuilderALL(pagebreakmarkup,margin,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) /return
+/function
+
+
+function ci_pagebuilderALL(pagebreakmarkup,margin,width,height,scalehtml,boxdefs,outfile,jpeg,pdf) locals p,psprog,ps,text,z,temp,psf,temp,r,rr,f,em,np,t,i do
+
+
+
+ psprog='%%BoundingBox: 0 0 '+width+' '+height+lf+
+        '/private ('+htmlos.conf.HTMLOSPrivate+'/) def '+lf+
+        '/public ('+htmlos.conf.DocumentPath+') def '+lf+
+        '/concatstrings % (a) (b) -> (ab) { exch dup length 2 index length add string dup dup 4 2 roll copy length 4 -1 roll putinterval } bind def'+lf+
+        '/runprivate { /instr exch def private instr concatstrings run } def'+lf+
+        '/runpublic { /instr exch def public instr concatstrings run } def'+lf+lf+
+        '(/system/clearimage/libraries/pagebuilder_gonzo.ps) runprivate % use external gonzo'+lf+
+        '(/system/clearimage/libraries/pagebuilder.ps) runprivate       % use external pagebuilder'+lf+lf+lf
+
+
+
+ width=width-(margin*2)
+ height=height-(margin*2)
+
+
+ if left(outfile,1)<>"/" then outfile=dirname(page)+"/"+outfile /if
+ text='' em='' np=boxdefs[1,1] p='' ps='' t=''
+ for name=boxdefs rowname=z do
+  if z[1]<>np then
+   p=p+replace('^XX^ '+height+' translate','^XX^','0')+lf+'% bordercolor borderwidth fillcolor align type x y width height epswidth epsheight filename font size fontcolor'+lf+lf+ps+lf+lf+'showpage'+lf
+   ps=''
+   t=t+'<div id="'+z[1]+'" style="position: relative; width: '+width*scalehtml+'px; height: '+height*scalehtml+'px; background: #ffffff;"'+showwith(' ',replaceall(pagebreakmarkup,'{PAGE}',np),'')+'>'+text+'</div>'+lf+'<!--PAGE BREAK-->'+lf
+   text=''
+   np=z[1]
+  /if
+  temp=z[11]
+  if left(temp,1)='^' and right(temp,1)='^' then
+   f=middle(temp,2,length(temp)-1)
+  else
+   f=@temp
+  /if
+
+  z[7]=z[7]-margin
+  z[8]=z[8]-margin
+
+  temp=ci_psblock(scalehtml,z,f,'TRUE','TRUE') # ps=true html=true /#
+  ps=ps+temp[2]
+  text=text+temp[1]
+  em=em+temp[3]
+  i=i+temp[4]
+ /for
+
+ p=psprog+lf+lf+p+lf+lf+'0 '+height+' translate'+lf+'% bordercolor borderwidth fillcolor align type x y width height epswidth epsheight filename font size fontcolor'+lf+lf+ps+lf+lf+'showpage'
+ r[1]=t+'<div id="'+np+'" style="position: relative; width: '+width*scalehtml+'px; height: '+height*scalehtml+'px; background: #ffffff;"'+showwith(' ',replaceall(pagebreakmarkup,'{PAGE}',np),'')+'>'+text+'</div>' text=r[1]
+ r[2]=p ps=r[2]
+ r[3]='<html>'+lf+'<body style="background: #eeeeee;">'+lf+'<div id="'+np+'" style="position: relative; width: '+width*scalehtml+'px; height: '+height*scalehtml+'px; background: #ffffff;">'+em+lf+'</div>'+lf+'</body>'+lf+'</html>'
+ ci_tagresults=""
+ if outfile<>"" then ci_tagresults=ci_savepages(width,height,ps,outfile,jpeg,pdf,i) /if
+
+
+
+ rr="ERROR"
+ rr[1]=r[1]                              # HTML version  /#
+ rr[2]=r[3]                              # Email version /#
+ rr[3]=syspublicurl+outfile+".jpg"
+ rr[4]=syspublicurl+outfile+".pdf"
+ return rr /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function DLLci_geneps(boxdefs,width,height) locals p,psprog,ps,text,z,temp,psf,temp,r,rr,f,em,np,t,i do
+ psprog='%%BoundingBox: 0 0 '+width+' '+height+lf+
+        '/private ('+htmlos.conf.HTMLOSPrivate+'/) def '+lf+
+        '/public ('+htmlos.conf.DocumentPath+') def '+lf+
+        '/concatstrings % (a) (b) -> (ab) { exch dup length 2 index length add string dup dup 4 2 roll copy length 4 -1 roll putinterval } bind def'+lf+
+        '/runprivate { /instr exch def private instr concatstrings run } def'+lf+
+        '/runpublic { /instr exch def public instr concatstrings run } def'+lf+lf+
+        '(/system/clearimage/libraries/pagebuilder_gonzo.ps) runprivate % use external gonzo'+lf+
+        '(/system/clearimage/libraries/pagebuilder.ps) runprivate       % use external pagebuilder'+lf+lf+lf
+
+
+ np=boxdefs[1,1] p='' ps=''
+ for name=boxdefs rowname=z do
+  if z[1]<>np then
+   np=z[1]
+   p=p+replace('^XX^ '+height+' translate','^XX^','0')+lf+'% bordercolor borderwidth fillcolor align type x y width height epswidth epsheight filename font size fontcolor'+lf+lf+ps+lf+lf+'showpage'+lf
+   ps=''
+  /if
+  temp=z[11]
+  if left(temp,1)='^' and right(temp,1)='^' then
+   f=middle(temp,2,length(temp)-1)
+  else
+   f=@temp
+  /if
+  temp=ci_psblock(scalehtml,z,f,'TRUE','FALSE') # ps=true html=false /#
+  ps=ps+temp[2]
+  i=i+temp[4]
+ /for
+ p=psprog+lf+lf+p+lf+lf+'0 '+height+' translate'+lf+'% bordercolor borderwidth fillcolor align type x y width height epswidth epsheight filename font size fontcolor'+lf+lf+ps+lf+lf
+ return p /return
+/function
+
+
+
+
+
+
+function ci_pagebuilder_preview(width,height,scalehtml,boxdefs) locals temp do
+ temp=ci_pagebuilder_asblocks_ALL(width,height,scalehtml,boxdefs,'false','true')
+ return merge(getcol(temp,3),getcol(temp,1)) /return
+/function
+
+
+
+function ci_pagebuilder_asblocks(width,height,scalehtml,boxdefs) do
+ return ci_pagebuilder_asblocks_ALL(width,height,scalehtml,boxdefs,'true','true')/return
+/function
+
+
+
+function ci_pagebuilder_asblocks_ALL(width,height,scalehtml,boxdefs,asps,asht) locals postscript,html,text,ps,newpage,pages,this,z,f,temp,id do
+
+ html=1
+ postscript=2
+ id=3
+
+ text=''
+ ps=''
+ newpage=boxdefs[1,1]
+ pages='ERROR'
+ this='ERROR' this[1]='sjt6dhdyab7-thdn7x1nfdhet02mfh'
+ boxdefs=appends(boxdefs,this)
+
+ for name=boxdefs rowname=z do
+  if z[1]<>newpage then
+
+   this='ERROR' # strange replace is so that type coersion doesn't change the intent of begining the line with a zero - 0 /#
+   this[id]         = newpage
+   this[postscript] = replace('^XX^ '+height+' translate','^XX^','0')+lf+'% bordercolor borderwidth fillcolor align type x y width height epswidth epsheight filename font size fontcolor'+lf+lf+ps+lf
+   this[html]       = '<div id="page_'+newpage+'" style="position: relative; width: '+width*scalehtml+'px; height: '+height*scalehtml+'px; background: #ffffff;"'+showwith(' ',replaceall(pagebreakmarkup,'{PAGE}',newpage),'')+'>'+text+'</div>'+lf
+   pages=appends(pages,this)
+
+   ps=''
+   text=''
+   newpage=z[1]
+  /if
+  temp=z[11]
+  if left(temp,1)='^' and right(temp,1)='^' then
+   f=middle(temp,2,length(temp)-1)
+  else
+   f=@temp
+  /if
+
+  temp=ci_psblock(scalehtml,z,f,asps,asht) # ps=true html=true /#
+  ps=ps+temp[postscript]
+  text=text+temp[html]
+
+ /for
+
+ return pages /return
+/function
+
+
+
+
+
+
+
+
+

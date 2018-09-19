@@ -1,0 +1,658 @@
+function ci_uploadinit(ci_imagepath) locals ci_imagetable,ci_temp,ci_temp1,temp,displaymessage,uptab do
+
+ # Clear Upload Progress Vars /#
+ uptab='temp'+hash(ci_GLOBALimagepath) @uptab="ERROR"
+
+
+ displaymessage='ERROR'
+ ci_imagetable=ci_getimagetable(ci_imagepath)
+ if uploadorclose='ERROR' then uploadorclose='' /if
+ if ci_uploaded="TRUE" then
+  ci_imagepath=""
+  for name=ci_temp1 value=1 to rows(ci_imagetable) do
+   temp=ci_processupload(ci_imagetable[1,ci_temp1],ci_temp1)
+   displaymessage[ci_temp1]=temp[1]
+   ci_imagepath=ci_imagepath+temp[2]+"|"
+  /for
+  ci_imagepath=left(ci_imagepath,length(ci_imagepath)-1)
+  if ci_execute<>'ERROR' then
+   ci_imagepath=ci_imagepath+','+ci_execute[1,2]+','+ci_execute[1,3]
+  /if
+  ci_imagetable=ci_getimagetable(ci_imagepath)
+  displaymessage[ci_temp1]=ci_imagepath
+ else
+  for name=ci_temp1 value=1 to rows(ci_imagetable) do
+   displaymessage[ci_temp1]=''
+  /for
+  displaymessage[ci_temp1]=ci_imagepath
+ /if
+ if ci_execute<>'ERROR' then
+  ci_imagepath=ci_imagepath+','+ci_execute[1,2]+','+ci_execute[1,3]
+ /if
+ return displaymessage /return
+/function
+
+
+
+
+
+
+
+
+function fromupload() locals temp do
+ fileid='ERROR'
+ temp=ajax_setvars('fileId')
+ if fileId<>'' and fileId<>'ERROR' then
+  hashvalue=replace(fileid,'formX','')
+  hashvalue=left(hashvalue,length(hashvalue)-length('x'+usernum))
+  temp=GetPostData(hashvalue) # This must run first to get the POST data /#
+  if left(ci_imagepath,2)='XX' then ci_imagepath=unencrypt(right(ci_imagepath,length(ci_imagepath)-2),usernum) /if
+  return "TRUE" /return
+ else
+  if left(ci_imagepath,2)='XX' then
+   ci_imagepath=unencrypt(right(ci_imagepath,length(ci_imagepath)-2),usernum)
+   return "TRUE" /return
+  else
+   return "FALSE" /return
+  /if
+ /if
+
+
+/function
+
+
+
+
+function getUPLOADstatus(hashvalue) locals x, uptab, upload_elip, upload_touch, upload_file, upload_size, upload_text, upload_percent, upload_lasttouch, upload_firsttouch, upload_path, upload_total, temp, tempunit, tempkbps, d do
+ uptab='temp'+hashvalue if @uptab="ERROR" then @uptab=upload_elip+","+upload_touch+","+upload_file+","+upload_size+","+upload_text+","+upload_percent+","+upload_lasttouch+","+upload_firsttouch+","+upload_path+","+upload_total /if
+ uptab=split(@uptab,',')
+ upload_elip=uptab[1,1]
+ upload_touch=uptab[1,2]
+ upload_file=uptab[1,3]
+ upload_size=uptab[1,4]
+ upload_text=uptab[1,5]
+ upload_percent=uptab[1,6]
+ upload_lasttouch=uptab[1,7]
+ upload_firsttouch=uptab[1,8]
+ upload_path=uptab[1,9]
+ upload_total=uptab[1,10]
+
+ upload_path='/upload/formX'+hashvalue+'x'+usernum
+ if upload_elip='' then
+  upload_elip='.'
+ elif upload_elip='.' then
+  upload_elip='..'
+ elif upload_elip='..' then
+  upload_elip='...'
+ else
+  upload_elip=''
+ /if
+
+
+
+ #
+  Currently this will return 100 if it doesnt find any of its files
+  In the future we can load the directory listing and if we find fersh file return 100 else return 0
+   $post_data_file = <<upload_path>>_postdata
+   $monitor_file = <<upload_path>>_flength.txt
+   $qstring_file = <<upload_path>>_qstring.txt
+ /#
+ upload_touch=systime
+ # Grab Upload Size, and Total Length/#
+ if isfile(upload_path+'_flength.txt') then
+  copy file=upload_path+'_flength.txt' to upload_total /copy
+  temp=ci_rmfile(upload_path+'_flength.txt')
+  upload_size='ERROR'
+  upload_text='ERROR'
+  upload_percent='ERROR'
+  upload_lasttouch='ERROR'
+  upload_firsttouch=upload_touch
+ /if
+
+ if isfile(upload_path+'_postdata') then
+  upload_size=fileinfo(upload_path+'_postdata') upload_size=upload_size[2]
+ else
+  upload_size='ERROR'
+ /if
+ if upload_total='ERROR' or upload_total='' then
+  if upload_size='ERROR' or upload_size='' then
+   # Length Unknown, No Data  /#
+   if upload_lasttouch<>'ERROR' and upload_lasttouch<>'' then
+    upload_percent=100
+    upload_text=''
+   else
+    upload_percent=0
+    upload_text='Starting Upload...'
+    upload_touch='ERROR'
+   /if
+  else
+   # Length Unknown, Data coming /#
+   upload_percent=1
+   upload_text='Uploading...'
+  /if
+ else
+  if upload_size='ERROR' or upload_size='' then
+   # Length Known, No Data  /#
+   upload_percent=0
+   upload_text='Sending '+size(upload_total)
+  else
+   # Length Known, Data coming /#
+   upload_percent=round(100*(upload_size/upload_total))
+
+   tempunit=getunit(upload_total)
+   tempkbps=upload_size/((upload_touch-upload_firsttouch)/1000)
+   if getsize(tempkbps,'KB')='ERROR' or tempkbps=0 then
+    upload_text=getsize(upload_size,tempunit)+' of '+getsize(upload_total,tempunit)+' '+tempunit
+   else
+    upload_text=getsize(upload_size,tempunit)+' of '+getsize(upload_total,tempunit)+' '+tempunit+' ('+getsize(tempkbps,'KB')+' KB/sec) '+gettimeunit((upload_total-upload_size)/tempkbps)+' remaining'
+   /if
+  /if
+ /if
+
+ upload_text=upload_text+upload_elip
+ upload_lasttouch=upload_touch
+ uptab='temp'+hashvalue
+ @uptab=upload_elip+','+upload_touch+','+upload_file+','+upload_size+','+upload_text+','+upload_percent+','+upload_lasttouch+','+upload_firsttouch+','+upload_path+','+upload_total
+ return upload_percent+'|'+replaceall(upload_text,' ','&nbsp;') /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function ci_uploadhtml(ci_imagepath,boxdim) locals displaymessage,ci_imagetable,ci_temp1,a,x,q,temp,fileid do
+ ci_GLOBALimagepath=ci_imagepath
+ q=ci_imagepath
+ displaymessage=ci_uploadinit(ci_imagepath)
+
+
+
+ ci_imagepath=displaymessage[cols(displaymessage)]
+ a='ERROR' x='ERROR'
+ ci_imagetable=ci_getimagetable(ci_imagepath)
+ for name=ci_imagetable rownum=ci_temp1 do
+  x=ci_getfile(ci_imagetable[1,ci_temp1],displaymessage[ci_temp1],ci_temp1,boxdim,ci_imagepath)
+  if a='ERROR' then a=x else a=append(a,x) /if
+ /for
+ ci_deletefile='ERROR'
+ ci_uploaded='ERROR'
+ ci_imagepath=q
+
+
+
+ return a /return
+/function
+
+
+
+
+
+
+
+
+function size(s) locals g,m,k do
+ g=1024*1024*1024
+ m=1024*1024
+ k=1024
+ if s>g then
+  s=format(s/g,"NORMAL",2)+"&nbsp;GB ("+s+" bytes)"
+ elif s>m then
+  s=format(s/m,"NORMAL",1)+"&nbsp;MB ("+s+" bytes)"
+ elif s>k then
+  s=format(s/k,"NORMAL",1)+"&nbsp;KB ("+s+" bytes)"
+ else
+  s=s+"&nbsp;bytes"
+ /if
+ return s /return
+/function
+
+
+
+
+
+function ci_showpath(path) locals text do
+ if left(path,1)="*" then path=right(path,length(path)-1) /if
+ if left(path,1)="*" then path=right(path,length(path)-1) /if
+ if right(path,17)="{{USECLIENTNAME}}" then
+  return "New File at:"+left(path,length(path)-17) /return
+ else
+  return path /return
+ /if
+/function
+
+
+
+
+
+function gettimeunit(t) locals d,h,m,a do
+ d=t/(24*60*60)
+ h=t/(60*60)
+ m=t/60
+ if d>1 then
+  if format(d,"NORMAL",1)<2 then t=format(d*60,"NORMAL",0)+' hours' else t=format(d,"NORMAL",0)+' days' /if
+ elif h>1 then
+  if format(h,"NORMAL",1)<2 then t=format(h*60,"NORMAL",0)+' minutes' else t=format(h,"NORMAL",0)+' hours' /if
+ elif m>1 then
+  if format(m,"NORMAL",1)<2 then t=format(m*60,"NORMAL",0)+' seconds' else t=format(m,"NORMAL",0)+' minutes' /if
+ else
+  t=round(t)+' seconds'
+ /if
+ return t /return
+/function
+
+
+
+
+
+function getunit(s) do
+ if s>1024*1024*1024 then
+  s="GB"
+ elif s>1024*1024 then
+  s="MB"
+ elif s>1024 then
+  s="KB"
+ else
+  s="bytes"
+ /if
+ return s /return
+/function
+
+
+
+
+
+function getsize(s,unit) do
+ if unit="GB" then
+  s=format(s/(1024*1024*1024),"NORMAL",2)
+ elif unit="MB" then
+  s=format(s/(1024*1024),"NORMAL",1)
+ elif unit="KB" then
+  s=format(s/1024,"NORMAL",1)
+ else
+  s=s
+ /if
+ return s /return
+/function
+
+
+
+
+
+function getsecondsbetween(a,b) locals text,s,d,s1,s2 do
+ d=timebetween(left(a,16),left(b,16),'minutes')*60
+ s1=middle(a,18,19) s2=middle(b,18,19) if not(isinteger(s1)) then s1=0 /if if not(isinteger(s2)) then s2=0 /if
+ d=d+(s2-s1)
+ return d /return
+/function
+
+
+
+
+
+function GetFormAction(f) do
+ return 'action="'+f+'" id="formx" name="formx" xmisc="'+f+'"' /return
+/function
+
+
+
+
+
+function GetSubmitButton(n,v) locals x do
+ x=^ERROR^
+ if ci_prefs[1,27]='1' then
+  x[1]='<div id="formx_uploadbutton"><input type="button" id="uploadbutton" onclick="beginUpload(this,'+"'"+getlink3('/apps/imageservices/uploadprogress.html','hashvalue',hash(ci_GLOBALimagepath))+"'"+');" name="'+n+'" value="'+v+'" /></div>'
+  x[2]='<div id="formx_progress"></div><div id="formx_progresstext"></div>'
+ else
+  x[1]='<input type="submit" name="'+n+'" value="'+v+'">'
+  x[2]='<div id="formx_progress"></div><div id="formx_progresstext"></div>'
+ /if
+ return x /return
+/function
+
+
+
+
+
+function GetPostData(hashvalue) locals ci_getpostdata,ci_getpostdata0,ci_getpostdata1 do
+ if ci_prefs[1,27]=1 then
+  if isfile('/upload/formX'+hashvalue+'x'+usernum+'_qstring.txt') then
+   copy file='/upload/formX'+hashvalue+'x'+usernum+'_qstring.txt' to ci_getpostdata /copy
+   ci_getpostdata0=ci_rmfile('/upload/formX'+hashvalue+'x'+usernum+'_qstring.txt')
+   ci_getpostdata=replaceall(ci_getpostdata,',','{COMMA}')
+   ci_getpostdata=replaceall(ci_getpostdata,'|','{PIPE}')
+   ci_getpostdata=replaceall(ci_getpostdata,'=',',')
+   ci_getpostdata=replaceall(ci_getpostdata,'&','|')
+   ci_getpostdata=ci_texttovar(ci_getpostdata)
+   for name=ci_getpostdata rowname=ci_getpostdata0 do
+    ci_getpostdata0[2]=unpostprep(ci_getpostdata0[2])
+    ci_getpostdata1=indirectionset(ci_getpostdata0[1],ci_getpostdata0[2])
+   /for
+   ci_getpostdata='Cool, found and processed /upload/formX'+hashvalue+'x'+usernum
+  else
+   ci_getpostdata='Bummer!! No Find /upload/formX'+hashvalue+'x'+usernum
+  /if
+ else
+  ci_getpostdata='Upload Progress turned off'
+ /if
+ return ci_getpostdata /return
+/function
+
+
+
+
+
+function ci_linkto(a,b) do
+ if a='' then
+  return b /return
+ else
+  return '<a '+a+'>'+b+'</a>' /return
+ /if
+/function
+
+
+
+
+
+function ci_getimagetable(ci_imagepath) locals ci_imagetable,x,y,temp do
+ temp=ci_imagepath
+ ci_imagetable='ERROR'
+ if count(ci_imagepath,',')<>0 then
+  ci_execute=split(ci_imagepath,',')
+  ci_imagepath=ci_execute[1,1]
+ /if
+ if count(ci_imagepath,"|")=0 then
+  ci_imagetable[1,1]=getfilepath(ci_imagepath)
+  if ci_prefs[1,27]=1 then
+   ci_onchange=' onchange="beginUpload(this,'+"'"+getlink3('/apps/imageservices/uploadprogress.html','hashvalue',hash(ci_GLOBALimagepath))+"'"+');"'
+  else
+   ci_onchange=''
+  /if
+ else
+  ci_imagetable=split(ci_imagepath,"|")
+  ci_onchange=''
+ /if
+ ci_imagepath=temp
+ return ci_imagetable /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+function ci_getfile(image,msg,cnt,boxdim,ci_imagepath) locals r,text,temp,imageid,showimage,ftype,gm,t do
+ if ci_registeredversion<3 then
+  r[1]="This feature requires Image Services 3.0 or greater" r[2]=r[1] r[3]=r[1] r[4]=r[1] r[5]=r[1] r[6]=r[1] r[7]=r[1] r[8]=r[1] r[9]=r[1] r[10]=r[1] r[11]=r[1]
+  return r /return
+ /if
+ r="ERROR"
+ r[5]=replace(reverse(replace(chopright(reverse(image),"/"),"/","")),'{{USECLIENTNAME}}','')
+ if msg<>"ERROR" and msg<>"" then r[4]='<font color="red">'+msg+'</font>' /if
+ if left(image,1)<>"/" then image=dirname(page)+image /if
+ # The logic is define all elements, then format last /#
+ ftype=ci_filetype(image)
+
+ gm=ci_getmeta(image)
+
+ temp='file'+cnt+usernum
+
+
+
+ t=indirectionset(temp+'title',gm[4,1])
+ t=indirectionset(temp+'desc',gm[5,1])
+
+
+ 
+ r[1] ='<input type="file" name="'+temp+'" class="formfileinput"'+ci_onchange+'>'
+
+
+
+
+
+
+ r[19]=temp+^title^
+ r[20]=temp+^desc^
+
+
+ if isfile(image) then
+  if ftype="pict" then
+   imageid=ci_identify(image)
+   r[18]=imageid[7]
+  else
+   imageid=fileinfo(image)
+   r[18]=imageid[3]
+  /if
+  if imageid[9]=1 and ftype="pict" then
+   temp="."+lower(imageid[3]) if temp=".error" or temp="ERROR" then temp="" /if
+   if (count(image,temp[1])=0) and temp[1]<>"UNK" then temp=image+temp[1] else temp=image /if
+   showimage=ci_img(image,boxdim,boxdim,"FALSE")
+   if left(showimage,5)="ERROR" then showimage='<img src="/apps/imageservices/images/'+lower(imageid[3])+'-128.gif" border="0" width=128 height=128 hspace="5" vspace="5">' /if
+   r[12]=showimage
+   r[2]='href="'+filepushlink("/apps/imageservices/download.html","ci_pushfile",image,temp)+'"'
+   r[3]='href="/apps/imageservices/deletefile.html" name="ci_deletefile" value="*'+image+'|'+page+'|'+ci_imagepath+'"'
+   r[15]='<img src="/apps/imageservices/trash.gif" width="12" height="12" border="0"><font size="-2" color="#999999">Delete Image</font>'
+   r[6]=showwith('',ci_showpath(image),'<br>')+showwith('',imageid[3],' Image | ')+showwith('',imageid[1],'px')+showwith(' by ',imageid[2],'px | ')+size(imageid[6])
+   r[7]=imageid[1]
+   r[8]=imageid[2]
+   r[9]=imageid[3]
+   r[10]=imageid[6]
+   r[18]=imageid[7]
+  else
+   r[3]='href="/apps/imageservices/deletefile.html" name="ci_deletefile" value="*'+image+'|'+page+'|'+ci_imagepath+'"'
+   r[15]='<img src="/apps/imageservices/trash.gif" width="12" height="12" border="0"><font size="-2" color="#999999">Delete File</font>'
+   r[2]='href="'+filepushlink("/apps/imageservices/download.html","ci_pushfile",image,image)+'"'
+   r[12]=ci_img('/apps/imageservices/images/'+ftype+'-128.gif',boxdim,boxdim,"FALSE")
+   r[6]=showwith('',ci_showpath(image),'<br>')+showwith('',upper(ftype)," File | ")+size(imageid[2])
+   r[7]='' r[8]='' r[9]='' r[10]=imageid[2]
+   r[18]=imageid[3]
+  /if
+ else
+  r[3]=''
+  r[2]=''
+  r[12]=ci_img('/apps/imageservices/images/'+ftype+'-128-dim.gif',boxdim,boxdim,"FALSE")
+  r[6]=ci_showpath(image)
+ /if
+
+ if length(r[5])>20 then r[5]=left(r[5],18)+'...' /if
+
+ # All the elements are ready. Now we format them /#
+ # Let the end user format the display - we just return an array
+ r[1]=choose form element
+ r[2]=download anchor
+ r[3]=delete anchor
+ r[4]=Error/Status Message
+ r[5]=Short Image Name
+ r[6]=formatted properties
+ r[7]=Width
+ r[8]=Height
+ r[9]=File Type
+ r[10]=Size
+ r[11]=File Name
+ r[12]=icon img
+ r[13]=form start
+ r[14]=form end
+ r[15]=delete icon/text
+ r[16]=Upload Button
+ r[17]='TRUE' or 'ERROR' if the page is being reached after an upload then TRUE.
+ r[18]=Last modified Date.
+ r[19]=File Title
+ r[20]=File Description
+/#
+
+ r[21]='XX'+encrypt(ci_imagepath,usernum)
+ r[11]=ci_showpath(image)
+ r[13]='
+  <form method=post enctype="multipart/form-data"  accept-charset="utf-8" '+GetFormAction(page)+'>
+   <input type="hidden" name="ci_uploaded" value="TRUE">
+
+
+   <input type="hidden" id="ci_statusurl" name="ci_statusurl" value="'+getlink3('/apps/imageservices/uploadprogress.html','hashvalue',hash(ci_GLOBALimagepath))+'">
+
+
+
+   <input type="hidden" id="ci_imagepath" name="ci_imagepath" value="'+r[21]+'">'
+ temp=GetSubmitButton("btn","Upload")
+ r[16]=temp[1]+temp[2]
+ r[14]='</form></div>'
+ r[17]=ci_uploaded
+
+ ci_snapshotpath='ERROR'
+ return r /return
+/function
+
+
+
+
+
+function ci_processupload(image,cnt) locals x,msg,uploadfile,ftype,uploadfile,tmp,namesent,aestivaname,temp,logit,t,data do
+ if left(image,1)<>"/" then image=dirname(page)+image /if
+ if right(image,17)<>"{{USECLIENTNAME}}" then
+  ftype=ci_filetype(image)
+ else
+  ftype="unk"
+ /if
+ msg=""
+ uploadfile="/upload/file"+cnt+usernum
+ # move uploaded file to proper destination /#
+ namesent="file"+cnt+usernum namesent=@namesent
+ 
+ data='ERROR'
+ data[4,1]=indirection('file'+cnt+usernum+'title')
+ data[5,1]=indirection('file'+cnt+usernum+'desc')
+ t=ci_putmeta(image,data)
+
+ if namesent="" then tmp[2]=0 else tmp=fileinfo(uploadfile) /if
+ if tmp[2]=0 then
+  temp=ci_rmfile(uploadfile)
+  if namesent='' then msg='' else msg="Zero Length File Found (Disk Full?)" /if
+ else
+  # Use copy, then move to get ownership right /#
+  temp=ci_cpfile(uploadfile,uploadfile+'A')
+  temp1=ci_rmfile(uploadfile)
+  uploadfile=uploadfile+'A'
+  if ftype="pict" then
+   msg=ci_processimage(uploadfile)
+ /if
+  if right(image,17)="{{USECLIENTNAME}}" then
+   namesent="file"+cnt+usernum namesent=@namesent
+copy sysstdin to file="/apps/test1.txt" /copy
+copy namesent to file="/apps/test.txt" /copy
+
+ #
+ #   aestivaname=aestivafilename(namesent)
+/#
+
+   aestivaname=fileprep(namesent)
+
+
+   image=replace(image,"{{USECLIENTNAME}}",aestivaname)
+   temp=sysmv(uploadfile,image)
+
+qq=tagresults
+  else
+   namesent="ERROR" aestivaname="ERROR"
+   temp=sysmv(uploadfile,image)
+
+qq=tagresults
+  /if
+  if temp='' then
+    msg=msg+"Upload Successful."
+    if namesent<>aestivaname then msg=msg+" Original File was renamed<br>New Name: "+aestivaname /if
+    ci_uploadorclose=' onUnload="window.opener.location.reload();"'
+    temp=ci_rmtemp(image)
+  else
+    msg=msg+"Upload Failed."
+  /if
+ /if
+ x[1]=msg
+ x[2]=image
+ return x /return
+/function
+
+
+
+
+
+function ci_processimage(image) locals imageid,a,text,x,w,h,w1,h1,ci_temp do
+ text=""
+ # If needed convert the original /#
+ if ci_prefs[1,18]=1 or ci_prefs[1,20]=1 then
+  imageid=ci_identifyalloptions(image,fileinfo(image))
+  w1=imageid[1]
+  h1=imageid[2]
+  a=imageid[3]
+ /if
+ if ci_prefs[1,18]=1 then
+  if count(ci_prefs[1,35],a)=0 then
+   if a="" or a="ERROR" then
+    a="UNKNOWN"
+   else
+    ci_temp=ci_convert(image,ci_prefs[1,19])
+    imageid=ci_identifyalloptions(image,fileinfo(image))
+   /if
+   if imageid[3]<>ci_prefs[1,19] then
+    x=ci_rmimage(image)
+    return image+ci_table(ci_temp)+ci_table(imageid)+ci_prefs[1,19]+"Images must be ("+replaceall(ci_prefs[1,35],' ',' or ')+")<br>Uploaded file appears to be ("+a+")<br>" /return
+   else
+    text=text+"The original image ("+a+") was converted to a "+ci_prefs[1,19]+" image.<br>"
+   /if
+  /if
+ /if
+ # if required resize the original /#
+ if ci_prefs[1,20]=1 then
+  x=ci_imgnr(image,ci_prefs[1,21],ci_prefs[1,22],"FALSE")
+  x=ci_tagresults
+  x=ci_mvfile(x[10],image)
+  x=ci_rmtemp(image)
+  imageid=ci_identifyalloptions(image,fileinfo(image))
+  w=imageid[1]
+  h=imageid[2]
+  if w<>w1 or h<>h1 then
+   text=text+"The original image was resized from "+w1+"x"+h1+" to "+w+"x"+h+"<br>"
+  /if
+ /if
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+function init_upload() do
+ if ci_upload<>"TRUE" then
+  displaymessage='ERROR'
+  ci_execute='ERROR'
+  ci_uploadpage=page
+  ci_upload=fromupload()
+  ci_uploadhtml=ci_uploadhtml(ci_imagepath,128)
+ /if
+ if ci_upload="TRUE" and ci_execute[1,2]<>'' and ci_execute[1,2]<>'ERROR' then 
+  ci_executepage=ci_execute[1,2] ci_execute[1,2]='ERROR'
+ else
+  ci_executepage='ERROR'
+ /if
+/function

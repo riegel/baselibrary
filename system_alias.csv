@@ -1,0 +1,5 @@
+"ls","bin/ls"
+"cp","bin/cp"
+"cat","bin/cat"
+"chmod","bin/chmod"
+"git","usr/bin/git"

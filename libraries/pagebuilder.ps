@@ -1,0 +1,541 @@
+/sethexcolor {{ 255 div } forall setrgbcolor} bind def
+
+/choosefont {exch findfont exch scalefont setfont} bind def
+
+/BeginEPS {
+/epsfVmStateSave save def
+/epsfDictCount countdictstack def
+/epsfOpCount count 1 sub def
+userdict begin
+/showpage {} def
+} bind def
+
+/EndEPS {
+count epsfOpCount sub {pop} repeat
+countdictstack epsfDictCount sub {end} repeat
+epsfVmStateSave restore
+} bind def
+
+/PlaceEPS {
+/epsfFile exch def
+/epsScale exch def
+/epsY exch def
+/epsX exch def
+BeginEPS
+epsX epsY translate
+epsScale epsScale scale
+epsfFile run
+EndEPS
+} bind def
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% -- Begin HTML renderer --
+
+
+
+
+
+
+/state {states states length 1 sub get} bind def
+/laststate {states states length 2 sub get} bind def
+/newline {
+    state (marginleft) get
+    currentpoint exch pop state (fontsize) get 1.2 mul sub
+    moveto
+} bind def
+/softnewline {    
+    currentpoint pop state (marginleft) get ne {newline} if
+} bind def
+
+/tagb {
+    state (fontstyle) get dup (-Italic) eq exch (-BoldItalic) eq or {
+	state (fontstyle) (-BoldItalic) put
+    } {
+	state (fontstyle) (-Bold) put
+    } ifelse 
+} bind def
+
+/tagi {    
+    state (fontstyle) get dup (-Bold) eq exch (-BoldItalic) eq or {
+	state (fontstyle) (-BoldItalic) put
+    } {
+	state (fontstyle) (-Italic) put
+    } ifelse 
+} bind def
+
+/tagcode {
+    state (fontface) (Courier) put
+} bind def
+
+/tagp {
+    softnewline newline    
+} bind def
+/tag_p {
+    newline  
+} bind def
+
+/tagbr {
+    newline    
+} bind def
+
+
+
+
+
+
+
+
+
+/tagsup {
+    0 state (fontsize) get 2.5 div rmoveto
+    state (fontsize) state (fontsize) get 1.75 div put    
+} bind def
+/tag_sup {
+    0 laststate (fontsize) get 2.5 div neg rmoveto
+} bind def
+
+
+
+
+
+
+
+
+
+
+
+
+
+/tagli {
+    softnewline  
+    gsave
+    currentpoint state (fontsize) get 3 div add exch state (fontsize) get 3 div add exch translate
+    newpath 0 0 state (fontsize) get 6 div 0 360 arc fill
+    grestore
+    state (marginleft) state (marginleft) get 15 add put
+    15 0 rmoveto
+} bind def
+
+/tag_li {    
+    softnewline
+    -15 0 rmoveto
+} bind def
+
+/showword {
+    /word exch def
+    
+    % Substitutions
+    word (&lt;) eq {/word (<) def} if
+    word (&gt;) eq {/word (>) def} if
+    word (&amp;) eq {/word (&) def} if
+    word (&middot;) eq {/word (\267 ) def} if
+    
+    word stringwidth pop state (width) get currentpoint pop sub lt
+    word ( ) eq or
+    currentpoint pop state (marginleft) get eq or {
+	word ( ) ne currentpoint pop state (marginleft) get ne or {
+	    word show
+	} if
+    } {
+	newline word show
+    } ifelse    
+} bind def
+
+/render {
+    /contents exch def
+    
+    % Set up the font
+    /thisfont state (fontface) get def
+    /thisstyle state (fontstyle) get def   
+    /thissize state (fontsize) get def   
+    /styledfont thisfont length thisstyle length add string def
+    styledfont 0 thisfont putinterval
+    styledfont thisfont length thisstyle putinterval
+    styledfont findfont thissize scalefont setfont
+
+    { %loop
+
+	contents () eq {exit} if
+	
+	contents ( ) search {	   
+	    showword ( ) showword
+	    pop
+	    /contents exch def	   
+	} {
+	    showword
+	    /contents () def
+	} ifelse 
+	
+    } loop
+
+} bind def
+
+/html {
+
+    /options exch def
+    /txt exch def
+    
+    gsave
+
+    currentpoint translate
+    
+    /states [options] def   
+    state (marginleft) 0 put   
+
+    % Replace end of lines with spaces
+    { % loop
+	txt (\n) search {	    
+	    length ( ) txt 3 1 roll putinterval
+	    pop pop	    
+	} {
+	    pop exit
+	} ifelse
+    } loop
+    
+    { % loop
+
+	txt (<) search {
+
+	    % Read up to and including next tag
+	    /content exch def
+	    pop	(>) search pop
+	    /tag exch def
+	    pop
+	    /txt exch def
+
+	    % Plot content
+	    content () ne {content render} if	    
+	    
+	    % Call handler for tag and pass attributes
+	    tag 0 1 getinterval (/) ne { % Open tag
+
+		% If tag ends " /" then inject close tag
+		tag ( /) search {
+		    /tag exch def
+		    pop pop
+		    /pad txt length tag length add 3 add string def
+		    pad 0 (</) putinterval
+		    pad 2 tag putinterval
+		    pad tag length 2 add (>) putinterval
+		    pad tag length 3 add txt putinterval
+		    /txt pad def		   
+		} {
+		    pop
+		} ifelse	
+	    
+		% Extend states by duplicating the last state
+		/states states length 1 add array dup states exch copy pop def
+		states dup length 1 sub states dup length 2 sub get dup length dict copy put	
+
+		/tagfn tag length 3 add string def
+		tagfn 0 (tag) putinterval
+		tagfn 3 tag putinterval		    	   
+		currentdict tagfn known {
+		    tagfn cvx exec
+		} if		
+	
+	    } { % Close tag		    	
+		
+		tag 0 (_) putinterval
+		/tagfn tag length 3 add string def
+		tagfn 0 (tag) putinterval
+		tagfn 3 tag putinterval		    	   
+		currentdict tagfn known {		  
+		    tagfn cvx exec
+		} if			
+
+		% Reduce states by dropping the last state
+		/states states 0 states length 1 sub getinterval def
+		
+	    } ifelse	   
+	    
+	} {	    	  
+	    render exit	    
+	} ifelse
+	
+    } loop
+
+    grestore
+    
+} bind def
+
+
+
+
+ 
+% -- End HTML renderer --
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/PlaceObject {
+
+/fontcolor exch def
+/fontsize exch def
+/fontname exch def
+/epsfFile exch def
+/ih exch def
+/iw exch def
+/h exch def
+/w exch def
+/y exch def
+/x exch def
+/way exch def
+/align exch def
+/fillcolor exch def
+/borderwidth exch def
+/bordercolor exch def
+
+
+fillcolor <FFFFFE> ne
+{
+newpath
+x y h add neg moveto
+x y neg lineto
+x w add y neg lineto
+x w add y h add neg lineto
+closepath
+fillcolor sethexcolor
+fill
+} if
+
+
+
+way (HTML) eq
+{
+    gsave    
+    x y neg moveto
+    fontcolor sethexcolor
+    /options 4 dict def
+    options (fontface) fontname put
+    options (fontsize) fontsize put
+    options (fontstyle) () put
+    options (width) w put
+    epsfFile options html
+    grestore
+} if
+
+
+
+
+
+way (CLIPTOFIT) eq way (SCALETOFIT) eq or
+{
+ gsave
+ newpath
+ x y h add neg moveto
+ x y neg lineto
+ x w add y neg lineto
+ x w add y h add neg lineto
+ closepath
+ clip
+ iw ih div w h div gt
+ {
+   way (CLIPTOFIT) eq
+   {
+    /sizeit h ih div def
+    align (BOTTOM) eq align (RIGHT) eq or {x iw sizeit mul w sub sub y h add neg sizeit epsfFile PlaceEPS} if
+    align (MIDDLE) eq align (CENTER) eq or {x iw sizeit mul w sub 2 div sub y h add neg sizeit epsfFile PlaceEPS} if
+    align (TOP) eq align (LEFT) eq or {x y h add neg sizeit epsfFile PlaceEPS} if
+   }
+   {
+    /sizeit w iw div def
+    align (BOTTOM) eq align (RIGHT) eq or {x y h add neg sizeit epsfFile PlaceEPS} if
+    align (MIDDLE) eq align (CENTER) eq or {x ih sizeit mul h sub 2 div y add h add neg sizeit epsfFile PlaceEPS} if
+    align (TOP) eq align (LEFT) eq or {x ih sizeit mul h sub y add h add neg sizeit epsfFile PlaceEPS} if
+   } ifelse
+ }
+ {
+   way (CLIPTOFIT) eq
+   {
+   /sizeit w iw div def
+    align (BOTTOM) eq align (RIGHT) eq or {x y h add neg sizeit epsfFile PlaceEPS} if
+    align (MIDDLE) eq align (CENTER) eq or {x ih sizeit mul h sub 2 div y add h add neg sizeit epsfFile PlaceEPS} if
+    align (TOP) eq align (LEFT) eq or {x ih sizeit mul h sub y add h add neg sizeit epsfFile PlaceEPS} if
+   }
+   {
+    /sizeit h ih div def
+    align (TOP) eq align (LEFT) eq or {x y h add neg sizeit epsfFile PlaceEPS} if
+    align (MIDDLE) eq align (CENTER) eq or {x iw sizeit mul w sub 2 div sub y h add neg sizeit epsfFile PlaceEPS} if
+    align (BOTTOM) eq align (RIGHT) eq or {x iw sizeit mul w sub sub y h add neg sizeit epsfFile PlaceEPS} if
+   } ifelse
+ } ifelse
+grestore
+} if
+
+
+way (TEXT) eq
+{
+ gsave
+ newpath
+ x y h add neg moveto
+ x y neg lineto
+ x w add y neg lineto
+ x w add y h add neg lineto
+ closepath
+ clip
+
+
+
+ fontname fontsize choosefont
+ fontcolor sethexcolor
+ /yline y def
+
+
+ align(MIDDLE) eq align (CENTER) eq or 
+ {
+  /newline {/yline yline fontsize neg sub def x w 2 div add yline neg moveto} def
+  newline
+  epsfFile
+  {(<br>) search
+   {dup stringwidth pop neg 2 div 0 rmoveto show  pop newline}
+   {dup stringwidth pop neg 2 div 0 rmoveto show exit } ifelse
+  } loop
+ } if
+
+
+ align(BOTTOM) eq align (RIGHT) eq or
+ {
+  /newline {/yline yline fontsize neg sub def x w add yline neg moveto} def
+  newline
+  epsfFile
+  {(<br>) search
+   {dup stringwidth pop neg 0 rmoveto show  pop newline}
+   {dup stringwidth pop neg 0 rmoveto show exit } ifelse
+  } loop
+ } if
+
+
+ align(TOP) eq align (LEFT) eq or
+ {
+  /newline {/yline yline fontsize neg sub def x yline neg moveto} def
+  newline
+  epsfFile 
+  {(<br>) search
+   {show  pop newline}
+   {show exit } ifelse
+  } loop
+ } if
+
+ grestore
+
+
+} if
+
+
+
+way (TEXTHERE) eq
+{
+ fontname fontsize choosefont
+ fontcolor sethexcolor
+ x y neg rmoveto
+ epsfFile show
+} if
+
+
+way (PARAGRAPH) eq
+{
+ fontname fontsize choosefont
+ fontcolor sethexcolor
+ /yline y neg fontsize sub def
+ epsfFile w {x yline moveto show /yline yline fontsize sub def} BreakIntoLines
+} if
+
+
+
+
+
+
+way (LINE) eq
+{
+ newpath
+ x y neg moveto
+ x w add y neg lineto
+ borderwidth setlinewidth
+ bordercolor sethexcolor
+ stroke
+}
+{
+ borderwidth 0 ne
+ {
+  newpath
+  x y h add neg moveto
+  x y neg lineto
+  x w add y neg lineto
+  x w add y h add neg lineto
+  closepath
+  borderwidth setlinewidth
+  bordercolor sethexcolor
+  stroke
+ } if
+} ifelse
+
+
+
+
+
+
+
+
+} def
+
+
+
+
+
+/wordbreak ( ) def
+/BreakIntoLines
+ {
+   /proc exch def
+   /linewidth exch def
+   /textstring exch def
+   /breakwidth wordbreak stringwidth pop def
+   /curwidth 0 def
+   /lastwordbreak 0 def
+   /startchar 0 def
+   /restoftext textstring def
+   { restoftext wordbreak search
+     { /nextword exch def pop
+       /restoftext exch def
+       /wordwidth nextword stringwidth pop def
+       curwidth wordwidth add linewidth gt
+       { textstring startchar
+         lastwordbreak startchar sub
+         getinterval proc
+         /startchar lastwordbreak def
+         /curwidth wordwidth breakwidth add def
+       }
+       { /curwidth curwidth wordwidth add
+         breakwidth add def
+       } ifelse
+       /lastwordbreak lastwordbreak
+       nextword length add 1 add def}
+     {pop exit} ifelse
+   } loop
+   /lastchar textstring length def
+   textstring startchar lastchar startchar sub
+   getinterval proc
+ } bind def

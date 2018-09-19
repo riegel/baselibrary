@@ -1,0 +1,1348 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the letters DLL in the function name
+/#
+
+
+
+function DLLsend_email(from.email,to.email,subject.email,html.email) locals attach.email do
+ attach.email=STRIPHTML.getTagFilesrc(html.email)
+ html.email=STRIPHTML.removeTagFile(html.email)
+ return DLLci_email_plus_attach(from.email,to.email,subject.email,html2text(html.email),html.email,attach.email) /return
+/function
+
+
+
+function DLLsend_email_attachments(from.email,to.email,subject.email,html.email,attach.email) do
+ return DLLci_email_plus_attach(from.email,to.email,subject.email,html2text(html.email),html.email,attach.email) /return
+/function
+
+
+function DLLci_email(from.email,to.email,subject.email,text.email,html.email) locals x do
+ return DLLci_email_plus_attach(from.email,to.email,subject.email,text.email,html.email,'ERROR') /return
+/function
+
+
+function DLLci_email_plus_attach(from.email,to.email,subject.email,text.email,html.email,attach.email)
+
+  #
+  # http://stackoverflow.com/questions/3902455/smtp-multipart-alternative-vs-multipart-mixed
+ /#
+
+  locals reply.email,body.email,stat.email,xhtm,cbound,outer_cbound,rnd0,rnd1,rnd2,q,epath,encodedhtml,boundmixed,boundalternative,boundrelated,x,temp,attachments,inlineattachments do
+   if count(from.email,'|')>0 then
+    temp=split(from.email,'|')
+    from.email=temp[1,1]
+    reply.email=temp[1,2]
+   else
+    reply.email='ERROR'
+   /if
+   rnd0=random(10000,99999)
+   rnd1=random(10000,99999)
+   rnd2=random(10000,99999)
+   xhtm=mail_htmlimages(html.email)
+   epath='/upload/emailB64_'+hash(from.email+to.email+subject.email+now+' '+tagresults[7])+'.txt'
+   sysrm(epath)
+   copy xhtm[2] to file=epath /copy
+   boundmixed       ='CI000.'+rnd0+'.'+hash(domainname)
+   boundalternative ='CI001.'+rnd1+'.'+hash(domainname)
+   boundrelated     ='CI002.'+rnd2+'.'+hash(domainname)
+   if attach.email<>'' and attach.email<>'ERROR' then
+    temp=''
+    for name=attach.email rowname=x do
+     if isfile(x[1]) then temp=temp+'<file src="'+x[1]+'">'+lf /if
+    /for
+    temp=mail_htmlimages(temp)
+    attachments=replaceall(replaceall(temp[3],'Content-ID: <attach','Content-ID: <attachment'),'--'+temp[1],'--'+boundmixed)
+   else
+    attachments='--'+boundmixed+'--'+cr+lf
+   /if
+   if xhtm[3]<>'' and xhtm[3]<>'ERROR' then
+    inlineattachments=replaceall(replaceall(xhtm[3],'--'+xhtm[1],'--'+boundrelated),'Content-Disposition: attachment; filename=','Content-Disposition: attachment;'+cr+lf+ascii(8)+'filename=')
+   else
+    inlineattachments='--'+boundrelated+'--'+cr+lf
+   /if
+   body.email=
+   'From: '+from.email+cr+lf+
+   showwith('Reply-To: ',reply.email,cr+lf)+
+   'Mime-Version: 1.0 (Clear Image Mail Alpha 1.0)'+cr+lf+
+   'Subject: '+subject.email+cr+lf+
+   'To: '+to.email+cr+lf+
+   'Content-Type: multipart/mixed; boundary='+boundmixed+cr+lf+
+   cr+lf+
+   cr+lf+
+   '--'+boundmixed+cr+lf+
+       'Content-Type: multipart/alternative; boundary='+boundalternative+cr+lf+
+       cr+lf+
+       cr+lf+
+       '--'+boundalternative+cr+lf+
+           'Content-Type: text/plain; charset=UTF-8'+cr+lf+
+           cr+lf+
+           cr+lf+
+           softbreak(text.email)+cr+lf+          
+           cr+lf+  cr+lf+  cr+lf+
+       '--'+boundalternative+cr+lf+
+           'Content-Type: multipart/related; boundary='+boundrelated+
+           cr+lf+
+           cr+lf+
+           '--'+boundrelated+cr+lf+
+               'Content-Type: text/html; charset=UTF-8'+cr+lf+
+               'Content-Transfer-Encoding: base64'+cr+lf+
+               cr+lf+
+               cr+lf+
+               chopinto(BASE64ENCODE(epath),78)+cr+lf+
+               cr+lf+
+               cr+lf+
+           inlineattachments+
+       '--'+boundalternative+'--'+cr+lf+
+   attachments
+   Q=body.email
+   Q=replaceall(Q,cr+lf,'{{{{CR-PLUS-LF}}}}')
+   Q=replaceall(Q,lf,'{{{{CR-PLUS-LF}}}}')
+   Q=replaceall(Q,cr,'{{{{CR-PLUS-LF}}}}')
+   Q=replaceall(Q,'{{{{CR-PLUS-LF}}}}',cr+lf)
+   body.email=Q
+   sysrm(epath)
+   stat.email=DLLquickmail(from.email,to.email,body.email)
+   return stat.email /return
+/function
+
+
+
+
+
+
+ # 
+ # <file src="cd_logo_digital_data.pdf">See Attached PDF</file>
+ # <img src="logo.jpg">
+/#
+
+function DLLemail_files(from.email,to.email,subject.email,email.files) do
+ return ci_emailFiles(from.email,to.email,subject.email,html2text(replaceall(email.files,lf,'<br>')),email.files) /return
+/function
+
+
+function ci_emailFiles(from.email,to.email,subject.email,text.email,file.list)
+  locals reply.email,body.email,stat.email,xhtm,cbound do
+
+
+   if count(from.email,'|')>0 then
+    temp=split(from.email,'|')
+    from.email=temp[1,1]
+    reply.email=temp[1,2]
+   else
+    reply.email='ERROR'
+   /if
+
+
+   xhtm=mail_htmlimages(file.list)
+   cbound='ClearImageMail.'+usernum+'.'+domainname
+   body.email=
+   'Mime-Version: 1.0 (Clear Image Mail Alpha 1.0)'+cr+lf+
+   'To: '+to.email+cr+lf+
+   'Content-Type: multipart/related; boundary='+cbound+cr+lf+
+   'From: '+from.email+cr+lf+
+   showwith('Reply-To: ',reply.email,cr+lf)+
+   'Subject: '+subject.email+cr+lf+cr+lf+cr+lf+
+   '--'+cbound+cr+lf+
+   'Content-Type: text/plain; charset="utf-8"'+cr+lf+
+   'Content-Transfer-Encoding: 7bit'+cr+lf+
+   cr+lf+
+   cr+lf+
+   text.email+cr+lf+
+   cr+lf+
+   cr+lf+
+   replaceall(xhtm[3],'--'+xhtm[1],'--'+cbound)+cr+lf
+   stat.email=DLLquickmail(from.email,to.email,body.email)
+  return stat.email /return
+/function
+
+
+
+function DLLqueue_email(from.email,to.email,subject.email,html.email) do
+ return DLLqueue_email_attachments(from.email,to.email,subject.email,html.email,'ERROR') /return
+/function
+
+
+function DLLqueue_email_attachments(from.email,to.email,subject.email,html.email,attach.email) locals x,z,t do
+ if isdir('/apps/cron') then
+  if DLLqueueemailidentify='ERROR' then DLLqueueemailidentify=0 /if
+  DLLqueueemailidentify=DLLqueueemailidentify+1
+  x='ERROR'
+  x[1]=from.email
+  x[2]=to.email
+  x[3]=subject.email
+  x[4]=html.email
+  z=5
+  if attach.email<>'' and attach.email<>'ERROR' then
+   for name=attach.email rowname=y do
+    if isfile(y[1]) then
+     x[z]=y[1]
+     z=z+1
+    /if
+   /for
+  /if
+  t="/apps/cron/control/email/queue_"+systime+"_"+DLLqueueemailidentify+".txt"
+  copy x to file=t /copy
+  sleep(5)
+  return 'queued for delivery ('+t+')' /return
+ else
+  return 'ERROR: Cron not installed' /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+function DLLsend_email_pop(from.email,to.email,subject.email,html.email,pop.server,pop.user,pop.password) do
+ temp=checkpop(pop.server,pop.user,pop.password)
+ if left(temp,5)='ERROR' then
+  return 'ERROR With POP before SMTP: '+temp /return
+ else
+  return ci_email(from.email,to.email,subject.email,html2text(html.email),html.email) /return
+ /if
+/function
+
+
+
+
+
+function DLLquickmail(fa,ta,tx) locals thisserver,r,s,x,smtpserver,t,d,MailServerIn,FromName,MailServerOut,AddHeader,HeaderLine,AddDateLine,AddFromLine,AddToLine,BusyWait,AUTHMETHOD,theUSERNAME,thePASSWORD,mailprefs do
+
+
+ # Clean up from address, it make look like... "Billy Bob" <billy@bob.com> /#
+ fa=chopchopright(chopchopleft(fa,'<'),'>')
+
+
+
+# Need code below as bare lf's are not allowed according to http://pobox.com/~djb/docs/smtplf.html /#
+  tx=replaceall(tx,cr+lf,lf)
+  tx=replaceall(tx,cr,lf)
+  tx=replaceall(tx,lf,cr+lf)
+# t - TRANSCRIPT /#
+
+
+
+
+
+
+ copy file="/system/conf/netmail.conf" ts="," to mailprefs /copy
+ for name=mailprefs rowname=x do
+  if x[1]='MailServerIn'  then  MailServerIn=x[2] /if
+  if x[1]='MailServerOut' then MailServerOut=x[2] /if
+  if x[1]='FromName'      then      FromName=x[2] /if
+  if x[1]='MailServerOut' then MailServerOut=x[2] /if
+  if x[1]='AddHeader'     then     AddHeader=x[2] /if
+  if x[1]='HeaderLine'    then    HeaderLine=x[2] /if
+  if x[1]='AddDateLine'   then   AddDateLine=x[2] /if
+  if x[1]='AddFromLine'   then   AddFromLine=x[2] /if
+  if x[1]='AddToLine'     then     AddToLine=x[2] /if
+  if x[1]='BusyWait'      then      BusyWait=x[2] /if
+  if x[1]='AUTHMETHOD'    then    AUTHMETHOD=x[2] /if
+  if x[1]='USERNAME'      then   theUSERNAME=x[2] /if
+  if x[1]='PASSWORD'      then   thePASSWORD=x[2] /if
+ /for
+ if AUTHMETHOD="ERROR" then AUTHMETHOD="" /if
+
+
+
+ if isfile('/apps/api/amazon/amazon.lib')='TRUE' then expand file="/apps/api/amazon/amazon.lib" /expand /if
+ if isfunction('AMAZON_send_raw_email')='TRUE' then
+  copy file="/system/conf/amazon.conf" ts="," to useamazon /copy
+  if useamazon="TRUE" then
+   t=AMAZON_send_raw_email(fa,ta,tx)
+   if left(t,28)='<SendRawEmailResponse xmlns=' then
+    return 'SUCCESS Email Sent Using Amazon SES'+lf+t /return
+   else
+    return 'ERROR Using Amazon SES to deliver email'+lf+t /return
+   /if
+  /if
+ /if
+
+
+   
+
+ thisserver=replace(chopleft(fromname,'@'),'@','')
+ if thisserver='' or thisserver='ERROR' then
+  thisserver=replace(chopleft(fa,'@'),'@','')
+ /if
+
+ smtpserver=MailServerOut
+ if smtpserver='' or smtpserver='ERROR' then
+  smtpserver='localhost'
+ /if
+
+
+
+# Open /#
+  x=netsockopen(0,smtpserver,25,100)
+  t='[O] Opening Connection: '+x[1,1]+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Connecting to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get First Line /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'220' and left(x,3)<>'250' then  return 'ERROR (0) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Send HELO or EHLO /#
+
+  if AUTHMETHOD="" then
+   x=netsockwrite(0,'HELO '+thisserver+cr+lf)
+   t=t+'[W] '+'HELO '+thisserver+lf
+     if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+  else
+   x=netsockwrite(0,'EHLO '+d+cr+lf)
+   t=t+'[W] '+'EHLO '+d+lf
+     if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+  /if
+# Get Response /#
+  s='ERROR'
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,4)<>'250 ' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     while left(x,4)='250-' then
+      if authmethod<>'' then
+       r=replace(x,'250-','')
+       if left(r,4)='AUTH' then
+        if count(r,authmethod)>0 then s=authmethod /if
+       /if
+      /if
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+         while left(x,3)='220' then
+          x=netsockread(0,5000)
+          t=t+'[R] '+x+lf
+         /while
+     /while
+     if left(x,3)<>'250' then return 'ERROR (1) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+# Authenticate /#
+    if authmethod<>'' then
+     if s='ERROR' then return 'ERROR SMTP AUTH method "'+authmethod+'" not found in server response'+lf+netsockclose(0)+lf+t+lf+lf+s /return /if
+     # Send AUTH INFO /#
+       x=netsockwrite(0,'AUTH '+authmethod+cr+lf)
+       t=t+'[W] '+'AUTH '+authmethod+lf
+         if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+     # Get Response /#
+       x=netsockread(0,5000)
+       t=t+'[R] '+x+lf
+         if left(x,16)<>'334 VXNlcm5hbWU6' then
+          while left(x,3)='220' then
+           x=netsockread(0,5000)
+           t=t+'[R] '+x+lf
+          /while
+          if left(x,16)<>'334 VXNlcm5hbWU6' then  return 'ERROR (2) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+         /if
+     # Send USERNAME /#
+       x=netsockwrite(0,b64encode(theusername)+cr+lf)
+       t=t+'[W] '+b64encode(theusername)+lf
+         if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+     # Get Response /#
+       x=netsockread(0,5000)
+       t=t+'[R] '+x+lf
+         if left(x,16)<>'334 UGFzc3dvcmQ6' then
+          while left(x,3)='220' then
+           x=netsockread(0,5000)
+           t=t+'[R] '+x+lf
+          /while
+          if left(x,16)<>'334 UGFzc3dvcmQ6' then  return 'ERROR (2) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+         /if
+     # Send PASSWORD /#
+       x=netsockwrite(0,b64encode(thepassword)+cr+lf)
+       t=t+'[W] '+b64encode(thepassword)+lf
+         if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+     # Get Response /#
+       x=netsockread(0,5000)
+       t=t+'[R] '+x+lf
+         if left(x,3)<>'235' then
+          while left(x,3)='220' then
+           x=netsockread(0,5000)
+           t=t+'[R] '+x+lf
+          /while
+          if left(x,3)<>'235' then  return 'ERROR (2) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+         /if
+    /if
+# Send MAIL /#
+  x=netsockwrite(0,'MAIL FROM: '+fa+cr+lf)
+  t=t+'[W] '+'MAIL FROM: '+fa+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get Response /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'250' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     if left(x,3)<>'250' then  return 'ERROR (2) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+# Send RCPT /#
+  x=netsockwrite(0,'RCPT TO: '+ta+cr+lf)
+  t=t+'[W] '+'RCPT TO: '+ta+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get Response /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'250' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     if left(x,3)<>'250' and left(x,3)<>'251' then  return 'ERROR (3) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+# Send DATA /#
+  x=netsockwrite(0,'DATA'+cr+lf)
+  t=t+'[W] '+'DATA'+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get Response /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'250' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     if left(x,3)<>'354' then  return 'ERROR (4) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+# Send TEXT /#
+  x=netsockwrite(0,tx+cr+lf+'.'+cr+lf)
+  t=t+'[W] '+'{BODY SENT}'+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get Response /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'250' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     if left(x,3)<>'250' then  return 'ERROR (5) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+# Send QUIT /#
+  x=netsockwrite(0,'QUIT'+cr+lf)
+  t=t+'[W] '+'QUIT'+lf
+    if x[1,1]<>'TRUE' then return 'ERROR Writing to SMTP server('+x+')'+lf+netsockclose(0)+lf+t /return /if
+# Get Response /#
+  x=netsockread(0,5000)
+  t=t+'[R] '+x+lf
+    if left(x,3)<>'250' then
+     while left(x,3)='220' then
+      x=netsockread(0,5000)
+      t=t+'[R] '+x+lf
+     /while
+     if left(x,3)<>'221' then  return 'ERROR (6) Server said something unexpected('+x+')'+lf+netsockclose(0)+lf+t /return /if
+    /if
+  return 'SUCCESS - Email Sent'+lf+netsockclose(0)+lf+t /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+function checkpop(popserver,usename,passcode) locals temp,x,y do
+# Open then Get first line/#
+ temp=netsockopen(0,popserver,110,100)
+ if temp[1,1]='TRUE' then
+  x=netsockread(0,5000)
+  y=x
+ else
+  x=netsockclose(0)
+  return 'ERROR Connecting to POP server' /return
+ /if
+# Send Username /#
+ if left(x,3)='+OK' then
+  temp=netsockwrite(0,'user '+usename+cr+lf)
+  y=y+lf+'user '+usename
+ else
+  x=netsockclose(0)
+  return 'ERROR Reading Sign on message'+lf+y /return
+ /if
+# Get response /#
+ if temp[1,1]='TRUE' then
+  x=netsockread(0,5000)
+  y=y+lf+x
+ else
+  x=netsockclose(0)
+  return 'ERROR Sending Username'+lf+y /return
+ /if
+# Send password /#
+ if left(x,3)='+OK' then
+  temp=netsockwrite(0,'pass '+passcode+cr+lf)
+  y=y+lf+'pass [PASSWORD SUPRESSED]'
+ else
+  x=netsockclose(0)
+  return 'ERROR Problem with username'+lf+y /return
+ /if
+# Get response /#
+ if temp[1,1]='TRUE' then
+  x=netsockread(0,5000)
+  y=y+lf+x
+ else
+  x=netsockclose(0)
+  return 'ERROR Sending Password'+lf+y /return
+ /if
+# If OK Close send success /#
+ if left(x,3)='+OK' then
+  x=netsockclose(0)
+  return "SUCCESS"+lf+y /return
+ else
+  x=netsockclose(0)
+  return 'ERROR Problem with password'+lf+y /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Utility Functions /#
+
+
+
+function quotedprintable(text) locals temp,x,c,v,linecounter do
+ temp=''
+ linecounter=1
+ for name=x value=1 to length(text) do
+  c=middle(text,x,x)
+  v=getascii(c)
+  if c="=" then
+   temp=temp+'=3D'
+   linecounter=linecounter+3
+  elif v>127 then
+   temp=temp+'='+ci_dectohex(v)
+   linecounter=linecounter+3
+  else
+   temp=temp+c
+   linecounter=linecounter+1
+   if v=10 or v=13 then linecounter=1 /if
+  /if
+  if linecounter>73 then
+   linecounter=1
+   temp=temp+'='+cr+lf
+  /if
+ /for
+ return temp /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+function mail_htmlimages(htmlmessage) locals plist,pfile,imagelist,pidx,internallist,fixedmessage,fixedtext,x,msg,temp,a,q,uniquattachname do
+ htmlmessage=htmlmessage[1,1]
+ pfile="/upload/plist-"+usernum+".txt"
+ imagelist=extractimagelist(htmlmessage)
+ if imagelist='ERROR' then
+  x='ERROR'
+  x[1]=''
+  x[2]=htmlmessage
+  x[3]=''
+  return x /return
+ /if
+ pidx=1
+ a=1
+ internallist=""
+ fixedmessage=htmlmessage
+ fixedtext=htmlmessage
+ for name=imagelist rowname=x do
+  x[1]=src2file(x[1]) # If it doesn't start with /IMG/ or contain /XPATH/ then x[1]=x[1] otherwise it returns the file path to the image /# 
+  if isfile(x[1]) then
+   uniquattachname='attach'+random(1000,9999)+'_'
+   internallist[1,pidx]=x[1]
+   internallist[2,pidx]=uniquattachname+a
+   temp=ci_extract(x[1])
+   internallist[3,pidx]=temp[2]+temp[4]
+   fixedmessage=replaceall(fixedmessage,x[1],"cid:"+uniquattachname+a)
+   pidx=pidx+1
+  /if
+  a=a+1
+ /for
+ if pidx=1 then
+  x='ERROR'
+  x[1]=''
+  x[2]=htmlmessage
+  x[3]=''
+  return x /return
+ /if
+ pidx=1
+ for name=internallist rowname=x DO
+  plist[1,pidx]=x[1]
+  q=ci_fileinfo(x[1])
+  plist[2,pidx]=q[5]
+  plist[3,pidx]=x[3]
+  if count(fixedmessage,'<file src="cid:'+x[2]+'">')>0 then
+   fixedmessage=replaceall(fixedmessage,'<file src="cid:'+x[2]+'">','')
+   plist[4,pidx]="attachment"
+   plist[5,pidx]=x[3]
+   plist[6,pidx]="<"+x[2]+">"
+   plist[6,pidx]=""
+  else
+   plist[4,pidx]=""
+   plist[5,pidx]=""
+   plist[6,pidx]="<"+x[2]+">"
+  /if
+  pidx=pidx+1
+ /for
+ stat=NETMAILPACK(plist,pfile)
+ copy file=pfile to msg /copy
+ x='ERROR'
+ x[1]=stat[1,2]      # <== this is the MIME boundary                                                /#
+ x[2]=fixedmessage   # <== this is the initial HTML with the image src replaced with cid: source    /#
+ x[3]=msg            # <== this is the base 64 encoded binary files                                 /#
+ myctype="multipart/related"
+ stat=ci_rmfile(pfile)
+ return x /return
+/function
+
+
+
+
+
+function extractimagelist(html) do
+ html=getimgsrc(html)+getfilesrc(html)
+ while count(html,',,')>0 do
+  html=replaceall(html,',,',',')
+ /while
+ if html='' then 
+  return 'ERROR' /return
+ else
+  if right(html,1)=',' then html=left(html,length(html)-1) /if
+  if left(html,1)=',' then html=right(html,length(html)-1) /if
+  html=replaceall(html,'/home/','/domain/'+domainid+'/')
+  return split(html,',') /return
+ /if
+/function
+
+
+
+function getfilesrc(text) locals a,b,nam,wid,hgt,align,tag,cap,col,x,y,z,c do
+ if count(text,"<file")=0 then return '' /return /if
+ if count(text,">")=0 then return '' /return /if
+ a=locate(text,"<file")
+ b=locate(text,">")
+ tag=trim(middle(text,a+1,b-1))
+ if right(tag,1)='/' then tag=left(tag,length(tag)-1) /if
+ tag=chopleft(tag,'src=')
+ tag=replace(tag,'src=','')
+ tag=chopright(tag,' ')
+ tag=replaceall(tag,'"','')
+ tag=replaceall(tag,"'",'')
+ tag=replaceall(tag," ",'')
+ text=tag+','+getfilesrc(right(text,length(text)-(b+0)))
+ return text /return
+/function
+
+
+function getimgsrc(text) locals a,b,nam,wid,hgt,align,tag,cap,col,x,y,z,c do
+ if count(text,"<img")=0 then return '' /return /if
+ if count(text,">")=0 then return '' /return /if
+ a=locate(text,"<img")
+ b=locate(text,">")
+ tag=trim(middle(text,a+1,b-1))
+ if right(tag,1)='/' then tag=left(tag,length(tag)-1) /if
+ tag=chopleft(tag,'src=')
+ tag=replace(tag,'src=','')
+ tag=chopright(tag,' ')
+ tag=replaceall(tag,'"','')
+ tag=replaceall(tag,"'",'')
+ tag=replaceall(tag," ",'')
+ text=tag+','+getimgsrc(right(text,length(text)-(b+0)))
+ return text /return
+/function
+
+
+
+
+
+function getanchors(text) locals a,b,nam,wid,hgt,align,tag,cap,col,x,y,z,c do
+ if count(text,"<a href=")=0 then return text /return /if
+ if count(text,"</a>")=0 then return text /return /if
+ a=locate(text,"<a href=")
+ b=locate(text,"</a>")
+ tag=trim(middle(text,a+8,b-1))
+ tag=chopright(tag,' ')
+ tag=replace(chopright(tag,'>'),'>','')
+ tag=replaceall(tag,'"','')
+ tag=replaceall(tag,"'",'')
+ tag=replaceall(tag,' ','')
+ text=left(text,a-1)+tag+getanchors(right(text,length(text)-(b+3)))
+ return text /return
+/function
+
+
+
+
+
+function mailmerge(text) locals a,b,nam,wid,hgt,align,tag,cap,col,x,y,z,c do
+ if count(text,"{")=0 then return text /return /if
+ if count(text,"}")=0 then return text /return /if
+ a=locate(text,"{")
+ b=locate(text,"}")
+ tag=trim(middle(text,a+1,b-1))
+ tag=indirection(tag)
+ text=left(text,a-1)+tag+mailmerge(right(text,length(text)-b))
+ return text /return
+/function
+
+
+
+
+
+function DLLtext2html(text) do
+ text="<p>"+replaceall(text,lf+lf,"</p><p>")+"</p>"
+ text=replaceall(text,lf,"<br>")
+ text=replaceall(text,"</p><p>","</p>"+lf+"<p>")
+ text=replaceall(text,"<br></p>","</p>")
+ return text /return
+/function
+
+
+
+
+function DLLhtml2text(text) locals x,y,z,a,temp do
+ return STRIPHTML.processtext(text) /return
+/function
+
+
+
+
+
+function DLLB64encode(text) locals i,x,y,z,a,b,c,d,b64,t do
+ b64=""
+ for name=i value=1 to ceiling(length(text)/3) do
+  x=getascii(middle(text,i*3-2,i*3-2))
+  y=getascii(middle(text,i*3-1,i*3-1))
+  z=getascii(middle(text,i*3-0,i*3-0))
+  a=floor(x/4)
+  if y="ERROR" then
+   b=(16*x-64*floor(x/4))
+   c=64 d=64
+  else
+   b=(16*x-64*floor(x/4))+floor(y/16)
+   if z="ERROR" then
+    c=(4*y-64*floor(y/16))
+    d=64
+   else
+    c=(4*y-64*floor(y/16))+floor(z/64)
+    d=64*((z/64)-floor(z/64))
+   /if
+  /if
+  b64=b64+B64toA(a)+B64toA(b)+B64toA(c)+B64toA(d)
+  if i/25=floor(i/25) then b64=b64+lf /if
+ /for
+ return b64 /return
+/function
+
+
+function ascii2(v) do
+ # this is used to create an escaped text version of ascii notice ^n, and ^d /#
+ if v= 0 then return '^n' /return /if
+ if v=94 then return '^d' /return /if
+ return ascii(v) /return
+/function
+
+
+function DLLB64decode(text) locals a,b,c,d,x,y,z,t,i do
+ # this uses ascii2() since the response needs to be text and it most probably is binary
+   use TEXTTOBIN( name , filename ) if you need to save the binary file produced /#
+ t=""
+ text=replaceall(replaceall(text,lf,""),cr,"")
+ for name=i value=1 to ceiling(length(text)/4) do
+  a=AtoB64(middle(text,i*4-3,i*4-3))
+  b=AtoB64(middle(text,i*4-2,i*4-2))
+  c=AtoB64(middle(text,i*4-1,i*4-1))
+  d=AtoB64(middle(text,i*4-0,i*4-0))
+  x=ascii2(a*4+floor(b/16))
+  y=ascii2(16*(16*((b/16)-floor(b/16)))+floor(c/4))
+  z=ascii2(64*(4*((c/4)-floor(c/4)))+d)
+  if d=64 then z="" /if
+  if c=64 then y="" /if
+  t=t+x+y+z
+ /for
+ return t /return
+/function
+
+
+
+
+
+function AtoB64(x) locals y do
+ y=getascii(x)
+ if y>64 and y<91 then return (y-65) /return /if
+ if y>96 and y<123 then return (y-71) /return /if
+ if y>47 and y<58 then return (y+4) /return /if
+ if x="+" then return 62 /return /if
+ if x="/" then return 63 /return /if
+ if x="=" then return 64 /return /if
+ return 64 /return
+/function
+
+
+
+
+
+function B64toA(x) do
+ if x<26 then return ascii(x+65) /return /if
+ if x>25 and x<52 then return ascii(x+71) /return /if
+ if x>51 and x<62 then return ascii(x-4) /return /if
+ if x=62 then return "+" /return /if
+ if x=63 then return "/" /return /if
+ if x=64 then return "=" /return /if
+ return "=" /return
+/function
+
+
+
+
+
+function binary(a) locals x do
+ x=a
+ bit8=floor(x/128)
+ if x>127 then x=x-128 /if
+ bit7=floor(x/64)
+ if x>63 then x=x-64 /if
+ bit6=floor(x/32)
+ if x>31 then x=x-32 /if
+ bit5=floor(x/16)
+ if x>15 then x=x-16 /if
+ bit4=floor(x/8)
+ if x>7 then x=x-8 /if
+ bit3=floor(x/4)
+ if x>3 then x=x-4 /if
+ bit2=floor(x/2)
+ if x>1 then x=x-2 /if
+ bit1=floor(x/1)
+ if x>16 then x=x-1 /if
+ return replaceall(bit8+"|"+bit7+"|"+bit6+"|"+bit5+"|"+bit4+"|"+bit3+"|"+bit2+"|"+bit1,"|","") /return
+/function
+
+
+
+
+
+
+
+function chopinto(text,num) locals s,textout do
+ s=floor(length(text)/num)
+ if s='ERROR' then s=0 /if
+ s=s+1
+ textout=''
+ for name=x value=1 to s do
+  if x<>s then
+   textout=textout+middle(text,(x-1)*num+1,x*num)+cr+lf
+  else
+   textout=textout+middle(text,(x-1)*num+1,length(text))
+  /if
+ /for
+ return textout /return
+/function
+
+
+
+
+
+
+
+
+
+function softbreak(text) locals temp,x,c,v,linecounter do
+ temp=''
+ linecounter=1
+ for name=x value=1 to length(text) do
+  c=middle(text,x,x)
+  v=getascii(c)
+  temp=temp+c
+  linecounter=linecounter+1
+  if v=10 or v=13 then linecounter=1 /if
+  if linecounter>73 then
+   linecounter=1
+   temp=temp+' '+cr+lf
+  /if
+ /for
+ return temp /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# STRIPHTML /#
+
+function STRIPHTML.processtext(thetext) locals a,b,c,L,R,temp,temp1,p,f,x,closed do
+ thetext=replaceall(thetext,'	',' ')
+ thetext=replaceall(thetext,cr+lf,lf)
+ thetext=replaceall(thetext,lf+cr,lf)
+ thetext=replaceall(thetext,cr,lf)
+ thetext=replaceall(thetext,lf+lf,'[LF][LF]')
+ thetext=replaceall(thetext,lf,' ')
+ thetext=replaceall(thetext,'[LF][LF]',lf+lf)
+ thetext=replaceall(thetext,ascii(194)+ascii(160),' ')
+ thetext=replaceall(thetext,'&nbsp;',' ')
+ thetext=STRIPHTML.removestyle(thetext)
+ thetext=STRIPHTML.removeiframe(thetext)
+ thetext=STRIPHTML.removescript(thetext)
+ thetext=STRIPHTML.removehead(thetext)
+ thetext=STRIPHTML.removecomments(thetext)
+  if count(thetext,'>')>1500 then
+  if floor(length(thetext)/2)=length(thetext)/2 then
+   a=floor(length(thetext)/2)
+   b=floor(length(thetext)/2)
+  else
+   a=floor(length(thetext)/2)
+   b=floor(length(thetext)/2)+1
+  /if
+  L= left(thetext,a)
+  R=right(thetext,b)
+  c=locate(R,'>')
+  L= left(thetext,a+c)
+  R=right(thetext,b-c)
+  thetext=STRIPHTML.extract(L)+STRIPHTML.extract(R)
+ else
+  thetext=STRIPHTML.extract(thetext)
+ /if
+ thetext=replaceall(thetext,'-less-than-'+usernum+'-','<')
+ thetext=replaceall(thetext,'-greater-than-'+usernum+'-','>')
+ thetext=STRIPHTML.removeanchor(thetext)
+ thetext=STRIPHTML.cleanSPACES(thetext)
+ thetext=STRIPHTML.cleanLF(thetext)
+ thetext=STRIPHTML.DeHTMLentities(thetext)
+ return thetext /return
+/function
+
+
+
+
+
+function STRIPHTML.closetag(thetext,tag) do
+ tag=middle(tag,2,length(tag)-1)
+ if right((reverse(chopleft(reverse(thetext),reverse(tag+'>')))),length('<'+tag+'>'))='<'+tag+'>' then
+  thetext=reverse(replace(reverse(thetext),reverse('<'+tag+'>'),reverse('<'+tag+'></'+tag+'>')))
+ /if
+ return thetext /return
+/function
+
+
+
+
+
+function STRIPHTML.DeHTMLentities(txt) locals temp do
+ temp=txt
+ temp=replaceall(temp,'&#39;'  ,"'")
+ temp=replaceall(temp,'&#039;' ,"'")
+ temp=replaceall(temp,'&squot;',"'")
+ temp=replaceall(temp,'&quot;' ,'"')
+ temp=replaceall(temp,'&lsquo;','‘')
+ temp=replaceall(temp,'&rsquo;','’')
+ temp=replaceall(temp,'&ldquo;','“')
+ temp=replaceall(temp,'&rdquo;','”')
+ temp=replaceall(temp,'&amp;'  ,'&')
+ temp=replaceall(temp,'&lt;'   ,'<')
+ temp=replaceall(temp,'&gt;'   ,'>')
+ temp=replaceall(temp,'&#8211;','–')
+ temp=replaceall(temp,'�','')
+ return temp /return
+/function
+
+
+
+
+
+function STRIPHTML.removeanchor(text) do
+ if count(text,"<anchor>")=0 then return replaceall(text,'</anchor>','') /return /if
+ if count(text,"</anchor>")=0 then return replaceall(text,'<anchor>','') /return /if
+ a=locate(text,"<anchor>")-1
+ b=locate(text,"</anchor>")+8
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removeanchor(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.removehead(text) do
+ if count(text,"<head>")=0 then return text /return /if
+ if count(text,"</head>")=0 then return text /return /if
+ a=locate(text,"<head>")-1
+ b=locate(text,"</head>")+6
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removehead(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.removestyle(text) do
+ if count(text,"<style>")=0 then return text /return /if
+ if count(text,"</style>")=0 then return text /return /if
+ a=locate(text,"<style>")-1
+ b=locate(text,"</style>")+7
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removestyle(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.removeiframe(text) do
+ if count(text,"<iframe")=0 then return text /return /if
+ if count(text,"</iframe>")=0 then return text /return /if
+ a=locate(text,"<iframe")-1
+ b=locate(text,"</iframe>")+8
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removeiframe(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.removescript(text) do
+ if count(text,"<script")=0 then return text /return /if
+ if count(text,"</script>")=0 then return text /return /if
+ a=locate(text,"<script")-1
+ b=locate(text,"</script>")+8
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removescript(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.removecomments(text) do
+ if count(text,"<!--")=0 then return text /return /if
+ if count(text,"-->")=0 then return text /return /if
+ a=locate(text,"<!--")-1
+ b=locate(text,"-->")+2
+ L=left(text,a)
+ R=right(text,length(text)-b)
+ return L+''+STRIPHTML.removecomments(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.cleanSPACES(thetext) locals x do
+ while count(thetext,'	')>0 do
+  thetext=replaceall(thetext,'	',' ')
+ /while
+ while count(thetext,'  ')>0 do
+  thetext=replaceall(thetext,'  ',' ')
+ /while
+ while left(thetext,1)=' ' do
+  thetext=middle(thetext,2,length(thetext))
+ /while
+ while right(thetext,1)=' ' do
+  thetext=middle(thetext,1,length(thetext)-1)
+ /while
+ while count(thetext,'> <')>0 do
+  thetext=replaceall(thetext,'> <','><')
+ /while
+ return thetext /return
+/function
+
+
+
+
+
+function STRIPHTML.cleanLF(thetext) locals x do
+ while count(thetext,lf+'	')>0 do
+  thetext=replaceall(thetext,lf+'	',lf)
+ /while
+ while count(thetext,'	'+lf)>0 do
+  thetext=replaceall(thetext,'	'+lf,lf)
+ /while
+ while count(thetext,lf+' ')>0 do
+  thetext=replaceall(thetext,lf+' ',lf)
+ /while
+ while count(thetext,' '+lf)>0 do
+  thetext=replaceall(thetext,' '+lf,lf)
+ /while
+ while count(thetext,lf+lf+lf)>0 do
+  thetext=replaceall(thetext,lf+lf+lf,lf+lf)
+ /while
+ while left(thetext,1)=lf do
+  thetext=middle(thetext,2,length(thetext))
+ /while
+ while right(thetext,1)=lf do
+  thetext=middle(thetext,1,length(thetext)-1)
+ /while
+ return thetext /return
+/function
+
+
+
+
+
+function STRIPHTML.extract(text) locals x1,x,loggedintemp,a,b,tag,tag_,L,R,tag_vars,m,t,exec,clr,w,h,cssclass,path,dataEditor,link,title,cedit,class,c,formDesc,i,GLOBALsource,tableoptions,choices,homepath,srcwh,w1,h1,temp do
+ if count(text,"<")=0 then return text /return /if
+ if count(text,">")=0 then return text /return /if
+ a=locate(text,"<")
+ b=locate(text,">")
+ L=left(text,a-1)
+ R=right(text,length(text)-b)
+ tag=replaceall(replaceall(trim(middle(text,a+1,b-1)),'&lt;','<'),'&gt;','>')
+ if left(tag,1)='a' then
+  temp=STRIPHTML.getattributes(tag,'href')
+  if temp[1,1]<>'-ERROR' and temp[1,1]<>'ERROR' then
+   if left(temp[1,1],7)='mailto:' then
+    return L+replace(temp[1,1],'mailto:','')+'-LESS-THAN-'+usernum+'-anchor-GREATER-THAN-'+usernum+'-'+STRIPHTML.extract(R) /return
+   else
+    return L+lf+lf+temp[1,1]+lf+lf+'-LESS-THAN-'+usernum+'-anchor-GREATER-THAN-'+usernum+'-'+STRIPHTML.extract(R) /return
+   /if
+  else
+   return L+STRIPHTML.extract(R) /return
+  /if
+ elif left(tag,2)='/a' then 
+  return L+'-LESS-THAN-'+usernum+'-/anchor-GREATER-THAN-'+usernum+'-'+STRIPHTML.extract(R) /return
+ elif left(tag,3)='img' then
+  temp=STRIPHTML.getattributes(tag,'alt')
+  if temp[1,1]<>'ERROR' and left(temp[1,1],6)<>'-ERROR' then
+   return L+lf+lf+temp[1,1]+lf+lf+STRIPHTML.extract(R) /return
+  else
+   return L+STRIPHTML.extract(R) /return
+  /if
+ elif left(tag,2)='br' then
+  return L+lf+STRIPHTML.extract(R) /return
+ elif left(tag,3)='div' or left(tag,4)='/div' or left(tag,1)='p' or left(tag,2)='/p' then
+  return L+lf+lf+STRIPHTML.extract(R) /return
+ elif left(tag,2)='li' then
+  return L+' - '+STRIPHTML.extract(R) /return
+ elif left(tag,1)='h' and left(tag,4)<>'html' then
+  return L+lf+STRIPHTML.extract(R) /return
+ elif left(tag,2)='/h' and left(tag,5)<>'/html' then
+  return L+lf+lf+STRIPHTML.extract(R) /return
+ /if
+ return L+STRIPHTML.extract(R) /return
+/function
+
+
+
+
+
+function STRIPHTML.getattributes(tag,attribs) locals text,indoublequote,insinglequote,char,x,y,a,found do
+ text=''
+ indoublequote='FALSE'
+ insinglequote='FALSE'
+ for name=x value=1 to length(tag) do
+  char=middle(tag,x,x)
+  if char='"' then
+   if indoublequote='TRUE' then
+    indoublequote='FALSE'
+   else
+    indoublequote='TRUE'
+   /if
+  /if
+  if char="'" then
+   if insinglequote='TRUE' then
+    insinglequote='FALSE'
+   else
+    insinglequote='TRUE'
+   /if
+  /if
+  if indoublequote='TRUE' or insinglequote='TRUE' then
+   if char=' ' then
+    text=text+'-space-bar-'+usernum+'-'
+   elif char='=' then
+    text=text+'-equal-sign-'+usernum+'-'
+   else
+    text=text+char
+   /if
+  else
+   text=text+char
+  /if
+ /for
+ text=replaceall(text,' = ','=')
+ text=replaceall(text,' =','=')
+ text=replaceall(text,'= ','=')
+ text=ci_deltexttovar(text,' ','=')
+ tag='ERROR'
+ for name=text rowname=x do
+  if left(x[2],1)='"' or left(x[2],1)="'" then
+   x[2]=middle(x[2],2,length(x[2])-1)
+  /if
+  x[2]=replaceall(x[2],'-space-bar-'+usernum+'-',' ')
+  x[2]=replaceall(x[2],'-equal-sign-'+usernum+'-','=')
+  tag=appends(tag,x)
+ /for
+ attribs=split(attribs,' ')
+ a='ERROR'
+ for name=attribs rowname=x do
+  found='ERROR'
+  for name=tag rowname=y do
+   if y[2]="" or y[2]="ERROR" then y[2]="null" /if
+   if y[1]=x[1] then a=appends(a,y[2]) found='TRUE' /if
+  /for
+  if found='ERROR' then a=appends(a,'-ERROR') /if
+ /for
+ return a /return
+/function
+
+
+
+
+
+
+
+
+
+function STRIPHTML.getTagFilesrc(text) locals x1,x,loggedintemp,a,b,tag,tag_,L,R,tag_vars,m,t,exec,clr,w,h,cssclass,path,dataEditor,link,title,cedit,class,c,formDesc,i,GLOBALsource,tableoptions,choices,homepath,srcwh,w1,h1,temp do
+ if count(text,"<")=0 then return '' /return /if
+ if count(text,">")=0 then return '' /return /if
+ a=locate(text,"<")
+ b=locate(text,">")
+ L=left(text,a-1)
+ R=right(text,length(text)-b)
+ tag=replaceall(replaceall(trim(middle(text,a+1,b-1)),'&lt;','<'),'&gt;','>')
+ if left(tag,4)='file' then
+  temp=STRIPHTML.getattributes(tag,'src')
+  if temp[1,1]<>'-ERROR' and temp[1,1]<>'ERROR' then
+   return appends(STRIPHTML.getTagFilesrc(R),temp[1,1]) /return
+  /if
+ /if
+ return STRIPHTML.getTagFilesrc(R) /return
+/function
+
+
+
+
+
+
+
+
+
+
+function STRIPHTML.removeTagFile(text) locals x1,x,loggedintemp,a,b,tag,tag_,L,R,tag_vars,m,t,exec,clr,w,h,cssclass,path,dataEditor,link,title,cedit,class,c,formDesc,i,GLOBALsource,tableoptions,choices,homepath,srcwh,w1,h1,temp do
+ if count(text,"<")=0 then return text /return /if
+ if count(text,">")=0 then return text /return /if
+ a=locate(text,"<")
+ b=locate(text,">")
+ L=left(text,a-1)
+ R=right(text,length(text)-b)
+ tag=replaceall(replaceall(trim(middle(text,a+1,b-1)),'&lt;','<'),'&gt;','>')
+ if left(tag,4)='file' then
+  return L+STRIPHTML.removeTagFile(R) /return
+ /if
+ return L+'<'+tag+'>'+STRIPHTML.removeTagFile(R) /return
+/function

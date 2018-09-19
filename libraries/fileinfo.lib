@@ -1,0 +1,323 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+function DLLsystem_filelist(systempath) locals temp,x,y,o do
+  # 
+  # We take ls and reformat it to follow the same structure as the Aestiva TAG filelist()
+  # 
+  # [1,1] -	file or directory name. Returns one row for each file or directory when using FILELIST or FILELISTALL.
+  # [2,1] -	file or directory size. Returns one row for each file or directory when using FILELIST or FILELISTALL.
+  # [3,1] -	modification date and time. Returns one row for each file or directory when using FILELIST or FILELISTALL.
+  # [4,1] -	file type (FILE or DIR). Returns one row for each file or directory when using FILELIST or FILELISTALL.
+ /#
+ temp=syscall('SYSTEM_FILELIST(path)','usr/bin/sudo /bin/ls -al --time-style=long-iso '+systempath)
+ while count(temp,'  ')>0 do
+  temp=replaceall(temp,'  ',' ')
+ /while
+ temp=ci_deltexttovar(temp,lf,' ')
+ o='ERROR'
+ for name=temp rowname=x do
+  if x[1]<>'Total' and x[8]<>'.' and x[8]<>'..' then
+   y='ERROR'
+   y[1]=x[8]
+   y[2]=x[5]
+   y[4]=x[6]+' '+x[7]
+   y[3]=dateToHTMLOS(y[4],'Y M D h:m')
+   if left(x[1],1)='d' then y[4]='DIR' else y[4]='FILE' /if
+   o=appends(o,y)
+  /if
+ /for
+ return o /return
+/function
+
+
+function DLLsavetext(path,area,text) locals fpath,fname,ext,r do
+ r='|BEGIN'
+ ext=ci_extract(path)
+ # [1]-Directory [2] File w/o extension [3]-TEMP Stuff [4]-Extension /#
+ fpath=ext[1]
+ fname='tmp-'+random(1000,9999)+'-'+usernum+'-tmp.txt'
+ copy text to file=fpath+fname /copy
+ if area='PUBLIC' then
+  r=r+'|'+sysfixpublic(fpath+fname)
+ elif area='PRIVATE' then
+  r=r+'|'+sysfixprivate(fpath+fname)
+ /if
+ r=r+'|'+sysfixname(fpath,fname,ext[2]+ext[4])
+ return r /return
+/function
+
+
+
+
+function DLLloadtext(path,area) locals thedir,temp,f,x,text do
+ if area<>'PUBLIC' and area<>'PRIVATE' then return 'ERROR' /return /if
+ thedir=ci_extract(path)
+ if version<4 then
+  temp=filelist(thedir[1,1])
+ else
+  temp=filelistall(thedir[1,1])
+ /if
+ f='ERROR'
+ for name=temp rowname=x do
+  if x[1]=thedir[2,1]+thedir[4,1] then f=appends(f,x) /if
+ /for
+ if rows(f)=2 then
+  SYSFIXNAME(thedir[1,1],thedir[2,1]+thedir[4,1],thedir[2,1]+thedir[4,1]+'.txt')
+  temp=fileinfo(thedir[1,1]+thedir[2,1]+thedir[4,1]+'.txt')
+  if f[5,1]=temp[5,1] and f[2,1]=temp[2,1] then fixarea=temp[5,1] /if
+  if f[5,2]=temp[5,1] and f[2,2]=temp[2,1] then fixarea=temp[5,1] /if
+  if fixarea=area then
+   copy file=thedir[1,1]+thedir[2,1]+thedir[4,1]+'.txt' to text /copy
+  else
+   copy file=thedir[1,1]+thedir[2,1]+thedir[4,1]        to text /copy
+  /if
+  SYSFIXNAME(thedir[1,1],thedir[2,1]+thedir[4,1]+'.txt',thedir[2,1]+thedir[4,1])
+ else
+  if f[5]=area then
+   copy file=thedir[1,1]+thedir[2,1]+thedir[4,1]        to text /copy
+  else
+   text='ERROR'
+  /if
+ /if
+ return text /return
+/function
+
+
+
+
+
+
+
+function DLLci_filetype(path) locals y do
+ y=ci_fileinfo(path)
+ return y[2] /return
+/function
+
+
+
+
+
+function DLLci_fileinfo(path) locals y,x,i do
+ if isdir(path) then y[1]="DIR" y[2]="dir" y[3]="folder" y[4]="Folder" y[5]="" return y /return /if
+ # this uses ci_filetype from above, but returns a lot more stuff
+ [1] - File Extension
+ [2] - File Type
+ [3] - File Description
+ [4] - File Handler Parameters (NAME="VALUE" NAME="VALUE" NAME="VALUE"...)
+ [5] - MIME
+ /#
+ if ci_filetype="ERROR" then copy file="/system/clearimage/database/filetypes.csv" ts="," to ci_filetype /copy /if
+ # Assume no extension is an image so add . to set as an image /#
+#if count(reverse(chopright(reverse(path),'/')),".")=0 then path=path+"." /if /#
+ y[1]="UNK" y[2]="unk" y[3]="File" y[4]="" y[5]="application/octet-stream"
+ for name=ci_filetype rowname=x do
+  if x[2]='pict' then i=x /if
+  if right(path,length(x[1]))=x[1] then return x /return /if
+ /for
+ if count(reverse(chopright(reverse(path),'/')),".")=0 then 
+  return i /return
+ else
+  return y /return
+ /if
+/function
+
+
+
+
+
+function DLLgetfilepath(path) locals a,x,p,bb do
+ # This returns the path to the file, normally trivial unless path includes a packed file /#
+ if left(path,1)<>'/' then path=dirname(page)+path /if
+ if right(path,3)='.bb' or right(path,4)='.pak' then return path /return /if
+ if count(path,'.bb')>0 or count(path,'.pak')>0 then
+  a=split(path,'/')
+  p='' bb='ERROR'
+  for name=a rowname=x do
+   if count(x[1],'.pak')>0 or count(x[1],'.bb')>0 then 
+    if isfile(p+x[1]) then
+     # bb or pak is a file /#
+     bb=x[1] x[1]='{'+x[1]+'}'
+    /if
+   /if
+   p=p+x[1]+'/'
+  /for
+  p=left(p,length(p)-1)
+  if bb<>'ERROR' then
+  p=split(p,'{'+bb+'}')
+  a=fileunpack(p[1]+bb,p[1]+ci_prefs[1,11]+bb,right(p[1,2],length(p[1,2])-1))
+  if a[1,1]<>'TRUE' then temp=ci_rmfile(p[1]+ci_prefs[1,11]+bb+'/'+right(p[1,2],length(p[1,2])-1)) /if
+  return replaceall(p[1]+ci_prefs[1,11]+bb+'/'+right(p[1,2],length(p[1,2])-1),'//','/') /return
+  else
+   return path /return
+  /if
+ else
+  return path /return
+ /if
+/function
+
+
+
+
+
+function DLLpakfileinfo(path) locals p,f,x,y,q do
+ # This takes a path like... /path/to/myapplication.pak/index.html 
+   and returns the information about it similar to fileinfo
+   It will work as an alternative to fileinfo, and subsequent calls
+   to fileinfo should not be necessary. It must return 6 columns.
+ /#
+ if isfile(path) then y=fileinfo(path) y[6]='' return y /return /if
+ if right(path,1)='/' then path=left(path,length(path)-1) /if
+ f=reverse(chopright(reverse(path),'/'))
+ f=right(f,length(f)-1)
+ p=reverse(replace(reverse(path),reverse(f),''))
+ q=ci_filelist(p)
+ y='ERROR'
+ for name=q rowname=x do
+  if x[1]=f then y=x /if
+ /for
+ y[1,1]=path
+ return y /return
+/function
+
+
+
+
+
+function DLLci_filelist(path) locals a,b,c,d,f,i,x,y,z do
+ if count(path,'.bb')>0 or count(path,'.pak')>0 then
+  path=path+'/' path=replaceall(path,'//','/');
+  if count(path,^.pak^)>0 then
+   a=listtorow(path,'.pak/')
+   a[1]=a[1]+'.pak'
+  else
+   a=listtorow(path,'.bb/')
+   a[1]=a[1]+'.bb'
+  /if
+  b=filepacklist(a[1]) i=fileinfo(a[1])
+  c='ERROR'
+  for name=b rowname=x do
+   if left(x[1],length(a[2]))=a[2] then
+    x[1]=replace(x[1],a[2],'') x[1]=chopright(x[1],'/')
+    if x[2]='DIR' and right(x[1],1)<>'/' then x[1]=x[1]+'/' /if
+    if c='ERROR' then c=x else c=append(c,x) /if
+   /if
+  /for
+  d=nodups(gettable(c,1,1,1,rows(c)))
+  z='ERROR' f='ERROR'
+  for name=d rowname=x do
+   for name=c rowname=y do
+    if y[1]=x[1] and f='ERROR' then
+     f[1]=y[1]
+     f[2]=y[3]
+     f[3]=i[3]
+     if right(y[1],1)='/' then f[4]='DIR' else f[4]='FILE' /if
+     f[5]=y[2]
+    elif y[1]=x[1] then
+     f[2]=f[2]+y[3]
+    /if
+   /for
+   if f<>'ERROR' then
+    if right(f[1],1)='/' then f[1]=left(f[1],length(f[1])-1) f[4]='DIR' f[5]='MIRROR' f[6]='C' /if
+    if f[5]='CPRIVATE' then f[5]='PRIVATE' f[6]='C' /if
+    if f[5]='CPUBLIC' then f[5]='PUBLIC' f[6]='C' /if
+    if z='ERROR' then z=f else z=append(z,f) /if
+   /if
+   f='ERROR'
+  /for
+  return z /return
+ else
+
+  if version<4 then
+   return filelist(path) /return
+  else
+   return filelistall(path) /return
+  /if
+ /if
+/function
+
+
+
+
+
+function DLLfileinfo2(path) locals y,x,a,tpath do
+ if left(path,1)<>'/' then path=dirname(page)+path /if
+ # this uses ci_filetype from above, but returns a lot more stuff
+   [1] - path
+   [2] - size
+   [3] - last modified date/time
+   [4] - FILE|DIR
+   [5] - File Area PUBLIC|PRIVATE|MIRROR|NOEXIST
+   [6] - File Extension
+   [7] - File Type
+   [8] - File Description
+   [9] - File Handler Parameters (NAME="VALUE" NAME="VALUE" NAME="VALUE"...)
+  [10] - MIME
+  [11] - Download URL
+  [12] - Upload URL
+ /#
+ if ci_filetype="ERROR" then copy file="/system/clearimage/database/filetypes.csv" ts="," to ci_filetype /copy /if
+ # Assume no extension is an image so add . to set as an image /#
+ if count(reverse(chopright(reverse(path),'/')),".")=0 then tpath=tpath+"." else tpath=path /if
+ y[6]="UNK" y[7]="unk" y[8]="File" y[9]="" y[10]="application/unknown" y[11]="" y[12]=""
+ for name=ci_filetype rowname=x do
+  if right(tpath,length(x[1]))=x[1] then y[6]=x[1] y[7]=x[2] y[8]=x[3] y[9]=x[4] y[10]=x[5] y[11]=x[6] y[12]=x[7] BREAK /if
+ /for
+ if y[6]='.' then y[6]='' /if
+ a=fileinfo(path)
+ if a[1,1]="ERROR" then
+  y[1]=path y[2]="ERROR" y[3]="ERROR" y[4]="ERROR" y[5]="NOEXIST" 
+  if right(path,1)='/' then y[6]="DIR" y[7]="dir" y[8]="folder" y[9]="Folder" y[10]="" y[11]='' y[12]='' return y /return /if
+  y[11]=SYSPUBLICURL+replace(path,'//','/')
+  y[12]=trim(ci_pophref(path)) y[12]=middle(y[12],7,length(y[12])-1)
+ else
+  y[1]=a[1] y[2]=a[2] y[3]=a[3] y[4]=a[4] y[5]=a[5]
+  if y[4]='DIR' then y=a y[6]="DIR" y[7]="dir" y[8]="folder" y[9]="Folder" y[10]="" y[11]='' y[12]='' return y /return /if
+  y[12]=trim(ci_pophref(path)) y[12]=middle(y[12],7,length(y[12])-1)
+  if y[5]="PRIVATE" then
+   y[11]=filepushlink("/apps/imageservices/download.html","ci_pushfile",path,path)
+  else
+   y[11]=SYSPUBLICURL+replace(path,'//','/')
+  /if
+ /if
+ return y /return
+/function
+
+
+
+
+function DLLtypetoicon(ftype) do
+ if ftype='txt' then
+   icon='icon-file-empty'
+ elif ftype='dir' then
+   icon='icon-folder'
+ elif ftype='pict' then
+   icon='icon-camera2'
+ elif ftype='mp3' then
+   icon='icon-music-note3'
+ elif ftype='lkd' then
+   icon='icon-folder-minus'
+ elif ftype='mov' then
+   icon='icon-camera'
+ elif ftype='pdf' then
+   icon='icon-file-empty'
+ elif ftype='bb' or ftype='sit' or ftype='pak' then
+   icon='icon-file-zip blue'
+ elif ftype='zip' then
+   icon='icon-file-zip yellow'
+ elif ftype='db' then
+   icon='icon-database green'
+ elif ftype='unk' then
+   icon='icon-cloud-gear'
+ elif ftype='table' then
+   icon='icon-file-spreadsheet'
+ else
+   icon='icon-file-empty'
+ /if
+ return icon /return
+/function

@@ -1,0 +1,3054 @@
+function is_valid_domain(dom) locals temp,x do
+
+ if left(dom,1)="." or right(dom,1)='.' or left(dom,1)="-" or right(dom,1)='-' then
+  return 'ERROR:Must start and end with alphanumeric characters (a-z A-Z 0-9)' /return
+ /if
+
+ if length(dom)>253 then
+  return 'ERROR: Total length exceeds 253 bytes' /return
+ /if
+
+
+
+ dom=lower(dom)
+ for name=x value=1 to length(dom) do
+  temp=getascii(middle(dom,x,x))
+  if temp=45 or temp=46 then
+   # good /#
+  elif temp>96 and temp<123 then
+   # good /#
+  elif temp>47 and temp<58 then
+   # good /#
+  else
+   return 'ERROR: Bad Character Only alphanumeric, period or hyphens allowed (a-z A-Z 0-9 . -)' /return
+  /if
+ /for
+
+ temp=nakeddomain(dom)
+ if left(temp,5)='ERROR' then
+  return 'ERROR: Problem with public suffix' /return
+ /if
+ temp=chopchopleft(temp,'.')
+ if left(temp,5)='ERROR' then
+  return 'ERROR: Problem with public suffix' /return
+ /if
+ if right(dom,length(temp))<>temp then
+  return 'ERROR: Problem with public suffix' /return
+ /if
+ return 'TRUE' /return
+/function
+
+
+
+ function slashMail(email.body,email.to,email.subject) locals email.from,mailprefs,x,email.html do
+  copy file="/system/conf/netmail.conf" ts="," to mailprefs /copy
+  for name=mailprefs rowname=x do
+   if x[1]='FromName' then email.from=x[2] /if
+  /for
+  email.html=replaceall(replaceall(email.body,cr+lf,lf),cr,lf)
+  email.html='<p>'+replaceall(replaceall(email.html,lf+lf,'</p><p>'),lf,'<br>')+'</p>'
+  email.html = REPLACEALL(email.html,"<p></p>","")
+  x=send_email(email.from,email.to,email.subject,'<html>'+email.html+'</html>')
+  return x /return
+ /function
+
+
+
+function make_clean(path,var) do
+ path=path+'/'+ci_prefs[1,11]+'/isclean_'+aestivafilename(var)+'.txt'
+ copy 'clean' to file=path /copy
+ return 'clean' /return
+/function
+
+
+function make_dirty(path,var) do
+ path=path+'/'+ci_prefs[1,11]+'/isclean_'+aestivafilename(var)+'.txt'
+ sysrm(path)
+ return 'dirty' /return
+/function
+
+function isdirty(path,var) do
+ path=path+'/'+ci_prefs[1,11]+'/isclean_'+aestivafilename(var)+'.txt'
+ if isfile(path) then
+  return 'FALSE' /return
+ else
+  return 'TRUE' /return
+ /if
+/function
+
+function isclean(path,var) do
+ path=path+'/'+ci_prefs[1,11]+'/isclean_'+aestivafilename(var)+'.txt'
+ if isfile(path) then
+  return 'TRUE' /return
+ else
+  return 'FALSE' /return
+ /if
+/function
+
+
+
+
+
+function window(var) locals x do
+ if var='init' then
+  window='ERROR'
+  window=cookieread('guid')
+  if window='ERROR' or window='' then window='GUID_'+idgen() /if
+  return window /return
+ elif var='js' then
+  return ^<script>!function(){window.name.match(/^+'^'+^GUID_/)||(window.name="^+window+^"),window.onbeforeunload=function(){document.cookie="guid="+window.name},window.onunload=function(){document.cookie="guid="}}();</script>^ /return
+ /if
+ x=window+'_'+var
+ return @x /return
+/function 
+
+function setWindow(var,val) locals x do
+ if window='ERROR' then
+  return 'ERROR' /return
+ else
+  x=window+'_'+var
+  @x=val
+ /if
+ return @x /return
+/function 
+
+
+
+
+function getVal(parampath,variable,default) locals table,text,found,x do
+ copy file=parampath ts="," to table /copy
+ text='' found='ERROR'
+ for name=table rowname=x do
+  if x[1]=variable then text=x[2] found='TRUE' break /if
+ /for
+ if found='ERROR' then text=default /if
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+function putVal(parampath,variable,val) locals text,x,var,table,paramfile,age do
+ copy file=parampath ts="," to table /copy
+ text=''
+ for name=table rownum=x do
+  if table[1,x]=variable then table[2,x]=val text='FOUND' break /if
+ /for
+ if text='' then
+  x[1]=variable
+  x[2]=val
+  table=appends(table,x)
+ /if
+ copy table to file=parampath ts="," /copy
+ sysfixprivate(parampath)
+ return text /return
+/function
+
+
+
+function getTab(parampath,variable,default) do
+ return csvtotable(getVal(parampath,variable,default)) /return
+/function
+
+function putTab(parampath,variable,tab) do
+ return putval(parampath,variable,tabletocsv(tab)) /return
+/function
+
+
+
+function delval(parampath,variable) locals therow,table,x do
+ copy file=parampath ts="," to table /copy
+ therow='ERROR'
+ for name=table rownum=x do
+  if table[1,x]=variable then therow=x break /if
+ /for
+ if therow='ERROR' then
+  return 'ERROR: Value not found' /return
+ else
+  table=delrow(table,therow)
+  copy table to file=parampath ts="," /copy
+  return 'SUCCESS: Param deleted' /return
+ /if
+/function
+
+
+function delTab(parampath,variable) do
+ return delval(parampath,variable) /return
+/function
+
+
+
+
+
+function ci_isstartlink(a) locals x,allowlist,found do
+ if allow.conf='/system/conf/allow.conf' then
+  return isstartlink(a) /return
+ else
+  copy file=allow.conf ts="," to allowlist /copy
+  found='ERROR'
+  for name=allowlist rowname=x do
+   if a=x[1] then found=x BREAK /if
+  /for
+  if found='ERROR' or not(isfile(a)) then
+   return 'FALSE' /return
+  else
+   return 'TRUE' /return
+  /if
+ /if
+/function
+
+
+
+
+
+
+
+function CSVTOTABLE467(text) locals v do
+ #
+ # If the CSV has quotes then it works just like before. If not
+ # then we sniff the version and define the delimiter and escape character
+/#
+ if left(text,1)='"' then
+  return CSVTOTABLE(text) /return
+ else
+  v=split(version,' ') v=((v[1,1])*1)+0
+  if v>4.66 then
+   return CSVTOTABLE(text,',','^') /return
+  else
+   return CSVTOTABLE(text) /return
+  /if
+ /if
+/function
+
+  function get_htmlos.conf() locals ci_temp,temp,path_htmlos.conf,syspath_htmlos.conf do
+   if htmlos.conf.loaded='ERROR' then
+    ci_temp=reverse(chopleft(reverse(GETENV("SCRIPT_FILENAME")),"/"))
+    ci_temp=left(ci_temp,length(ci_temp)-1)
+    htmlos.conf.HTMLOSInstallDir='t'+ci_temp
+    if getsysconf<>'ERROR' then
+     temp=getsysconf
+     for name=temp rowname=x do
+      temp1='htmlos.conf.'+x[1]
+      @temp1=x[2]
+     /for
+    else
+     htmlos.conf.DocumentPath=replaceall(GETENV("DOCUMENT_ROOT")+'/','//','/')
+     if left(version,4)<=4.50 then
+      htmlos.conf.HTMLOSPrivate=ci_temp+"/private/"
+     else
+      htmlos.conf.HTMLOSPrivate=replace(HTMLOSFULLPATH('/system/clearimage/DLL.lib'),'/system/clearimage/DLL.lib','')
+     /if
+     htmlos.conf.SystemDirectory=panel.sysdir
+    /if
+    htmlos.conf.loaded='TRUE'
+   /if
+   cginame=replaceall(replace(replace(sysstartlink,syspublicurl,''),sysstartname,''),'/','')
+  /function
+
+
+
+function idgen() locals temp,temp1,id,record do
+ while isfile(idgenDB+"idgenLOCK") then
+  copy file=idgenDB+"idgenLOCK" to temp /copy
+  sleep(250)
+  copy file=idgenDB+"idgenLOCK" to temp1 /copy
+  if temp=temp1 then sysrm(idgenDB+"idgenLOCK") /if
+ /while
+ copy usernum+'-'+random(1000,9999) to file=idgenDB+"idgenLOCK" /copy
+ temp=dbsearch(idgenDB+"idgen","NOT id=1",1,1000)
+ if dbresults[5,1]<>1 then return 'ERROR-IDGeneratorCorrupt'+random(10000,99999) /return /if
+ id=temp[2]+1
+ record=temp[1]
+ temp=dbedit(idgenDB+"idgen",record)
+ sysrm(idgenDB+"idgenLOCK")
+ return id /return
+/function
+
+
+function idsgen(i) locals temp,id,record do
+
+ if not(isinteger(i)) or i='' or i='ERROR' then i=1 /if
+
+ while isfile(idgenDB+"idgenLOCK") then
+  copy file=idgenDB+"idgenLOCK" to temp /copy
+  sleep(250)
+  copy file=idgenDB+"idgenLOCK" to temp1 /copy
+  if temp=temp1 then sysrm(idgenDB+"idgenLOCK") /if
+ /while
+
+ copy usernum+'-'+random(1000,9999) to file=idgenDB+"idgenLOCK" /copy
+ temp=dbsearch(idgenDB+"idgen","NOT id=1",1,1000)
+ if dbresults[5,1]<>1 then return 'ERROR-IDGeneratorCorrupt'+random(10000,99999) /return /if
+
+ id=temp[2]+i
+ record=temp[1]
+ temp=dbedit(idgenDB+"idgen",record)
+ sysrm(idgenDB+"idgenLOCK")
+
+ return id-i+1 /return
+/function
+
+
+
+
+
+
+
+
+function messagefor(id,themsg) locals x do
+ x='MSG'+replaceall(id,'/','.')
+ if themsg='' or themsg='ERROR' or themsg=0 then
+  themsg=@x
+  @x='ERROR'
+ else
+  @x=themsg
+ /if
+ if themsg='ERROR' then themsg='' /if
+ return themsg /return
+/function
+
+
+
+
+
+function message(themsg) locals x do
+ x='MSG'+replaceall(page,'/','.')
+ if themsg='' or themsg='ERROR' or themsg=0 then
+  themsg=@x
+  @x='ERROR'
+ else
+  @x=themsg
+ /if
+ if themsg='ERROR' then themsg='' /if
+ return themsg /return
+/function
+
+
+function message_code(themsg) locals x do
+ x='MSG_CODE'+replaceall(page,'/','.')
+ if themsg='' or themsg='ERROR' or themsg=0 then
+  themsg=@x
+  @x='ERROR'
+ else
+  @x=themsg
+ /if
+ if themsg='ERROR' then themsg='' /if
+ return themsg /return
+/function
+
+
+
+
+
+
+
+ # 
+ # function getvalue(JP,id) locals x,found do
+ #  found='ERROR'
+ #  for name=JP rowname=x do
+ #   if x[1]=id then found=x[2] BREAK /if
+ #  /for
+ #  return found /return
+ # /function
+/#
+
+
+function setvalue(table,nam,val) locals found,x do
+ found='ERROR'
+ for name=table rownum=x do
+  if table[1,x]=nam then table[2,x]=val found='TRUE' /if
+ /for
+ if found='ERROR' then
+  x='ERROR' x[1]=nam x[2]=val
+  table=appends(table,x)
+ /if
+ return table /return
+/function
+
+
+
+function getvalue(JP,id) locals temp do
+ temp=getcoleq(jp,1,id)
+ if temp='' then
+  return 'ERROR' /return
+ else
+  return getcol(temp,2) /return
+ /if
+/function
+
+
+
+function getvalues(a,b) locals x,i,c,e,p,r do
+ if count(b,'##')=0 then
+  c=getvalue(a,b)
+ else
+  e=rows(a)
+  if count(b,'[##]')=0 then p=chopright(b,'##') else p=chopright(b,'##]') /if
+  c=''
+  for name=x value=1 to e do
+   nonum='FALSE'
+   found='ERROR' for name=a rowname=r do if count(r[1],replace(p,'##',x))>0 then found='TRUE' BREAK /if /for
+   if found='ERROR' and x=1 then
+    found='ERROR' for name=a rowname=r do if count(r[1],replace(p,'[##]',''))>0 then found='TRUE' nonum='TRUE' BREAK /if /for
+   /if
+   if found='TRUE' then
+    if nonum='TRUE' then
+     i=getvalue(a,replace(b,'[##]',''))
+    else
+     i=getvalue(a,replace(b,'##',x))
+    /if
+    if c='' then
+     c=i
+    else
+     c=append(c,i)
+    /if
+   else
+    BREAK
+   /if
+  /for
+ /if
+ return c /return
+/function
+
+
+
+
+
+
+
+
+
+
+function getJSONvalue(JP,id) locals x,found do
+ found='ERROR'
+ for name=JP rowname=x do
+  if x[1]=id then found=x[6] BREAK /if
+ /for
+ return found /return
+/function
+
+
+
+
+function submitjob(path) do
+ return runcron('*','*','*','*','*',path) /return
+/function
+
+function runcron(minute,hour,daynum,month,weekday,path) locals
+  minute_ , hour_ , daynum_ , month_ , weekday_ , self, x, n, procid,
+  queue.procid,queue.starttime,queue.command,queue.cronjob,
+  last.procid,last.submitprocid,last.starttime,last.duration,last.command,last.cronjob,
+  log.procid,log.runprocid,log.starttime,log.duration,log.command,log.cronjob,log.message
+ do
+
+ append '"'+minute+'","'+hour+'","'+daynum+'","'+month+'","'+weekday+'","'+path+'"'+lf to file='/apps/cron/control/alljobs.txt' /append
+
+ n=now
+
+ procid=replace(replace(chopleft(n,' '),' ',''),':','')
+
+ queue.procid=1
+ queue.starttime=2
+ queue.command=3
+ queue.cronjob=4
+
+ last.procid=1
+ last.submitprocid=2
+ last.starttime=3
+ last.duration=4
+ last.command=5
+ last.cronjob=6
+
+ log.procid=1
+ log.runprocid=2
+ log.starttime=3
+ log.duration=4
+ log.command=5
+ log.cronjob=6
+ log.message=7
+
+ self='runcron("'+minute+'","'+hour+'","'+daynum+'","'+month+'","'+weekday+'","'+path+'")'
+
+ if left(path,1)<>'/' then path='/apps/cron/jobs/'+path /if
+
+
+   minute_=getminute(n)
+     hour_=gethour(n)
+   daynum_=getday(n)
+    month_=getmonth(n)
+  weekday_=getweekday(n,'number')
+
+ if  minute='*'  then  minute=minute_  /if
+ if    hour='*'  then    hour=hour_    /if
+ if  daynum='*'  then  daynum=daynum_  /if
+ if   month='*'  then   month=month_   /if
+ if weekday='*'  then weekday=weekday_ /if
+
+ if (minute=minute_) and (hour=hour_) and (daynum=daynum_) and (month=month_) and (weekday=weekday_) then
+  message=''
+  x='ERROR'
+  x[queue.procid]=procid
+  x[queue.starttime]=now
+  x[queue.command]=path
+  x[queue.cronjob]=self
+  append x to file="/apps/cron/control/queue.txt" /append 
+ /if
+/function
+
+
+
+
+
+
+function getvariables(varstring,assignmentstring) locals text,postin,exec,clr do
+ if varstring<>'' and varstring<>'ERROR' then
+  if count(varstring,'=')=0 then varstring=varstring+'=' /if
+  postin=replaceall(varstring,'^','%5E')
+  exec='EXTERNALNOOP=(^'+replaceall(replaceall('&'+postin,'&','^) setEXTERNALvar(^EXTERNAL_'),'=','^,^')+'^)'
+  clr='EXTERNALNOOP=^ERROR^'+lf+replaceall(replaceall('# CLEAR &'+postin,'&',' /# EXTERNAL_'),'=','="ERROR" # ')+' /#'
+  text=clr+lf+exec+lf+assignmentstring+lf+clr
+ else
+  text=''
+ /if
+
+ # 
+ #  append now+' '+domainid+' '+varstring+' '+assignmentstring+' '+text+lf+lf+lf to file='/apps/blocks/LIB/log.log' /append
+ #  sysfixprivate('/apps/blocks/LIB/log.log')
+ #  return 'qbhtcvb5=0' /return
+/#
+
+
+ return text /return
+/function
+
+
+
+
+
+
+
+function setEXTERNALvar(var,val) locals temp do
+ if count(var,'[')>0 then
+  indirectionset(var,val)
+ else
+  temp=@var
+  temp=appends(temp,val)
+  @var=temp
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+function Controller(t) locals g do
+ g='/apps/route/controllers/'+replace(t,'#!','')+'.overlay'
+ if isfile(g) then
+  return g /return
+ else
+  g='/apps/'+replace(t,'#!','')+'/_'+replace(t,'#!','')+'.overlay'
+  if isfile(g) then
+   return g /return
+  else
+   t=^/apps/route/controllers/unknown.overlay^
+   return gotoAny(t) /return
+  /if
+ /if
+/function
+
+
+
+
+
+
+function Error(t) do
+ if count(t,'|')>0 then
+  error=t
+  return '/apps/route/errors/error.html' /return
+ else
+  return gotoAny('/apps/route/errors/'+t+'.html') /return
+ /if
+/function
+
+
+
+
+
+function gotoAny(p) locals text do
+ if isfile(p) then
+  text=p
+ else
+  text=^/apps/route/errors/404.html^
+ /if
+ return text /return
+/function
+
+
+function urlprep(t) do
+ return replaceall(fileprep(t),'%','%25') /return
+/function
+
+
+
+function fileprep(t) locals a do
+ return replaceall(thefileprep(replaceall(t,'%25','%')),'%25','%') /return
+/function
+
+
+function Thefileprep(t) do
+ return replaceall(replaceall(replaceall(replaceall(replaceall(postprep(t),'%2F','/'),'%2E','.'),'%5F','_'),'%2D','-'),'%3A',':') /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function e_(t) do
+ if t='' or t='ERROR' then return t /return /if
+ if desktoppassword='' or desktoppassword='ERROR' then
+  copy file="/system/password.sys" to desktoppassword /copy
+  if desktoppassword='' or desktoppassword='ERROR' then desktoppassword='7RXYxjRoXcrzdso' /if  
+ /if
+ return encrypt(t,desktoppassword) /return
+/function
+
+
+function d_(t) do
+ if t='' or t='ERROR' then return t /return /if
+ if desktoppassword='' or desktoppassword='ERROR' then
+  copy file="/system/password.sys" to desktoppassword /copy
+  if desktoppassword='' or desktoppassword='ERROR' then desktoppassword='7RXYxjRoXcrzdso' /if  
+ /if
+ return unencrypt(t,desktoppassword) /return
+/function
+
+
+
+
+function e(t) do
+ if t='' or t='ERROR' then return t /return /if
+ return encrypt(t,secretusernum*usernum) /return
+/function
+
+
+function d(t) do
+ if t='' or t='ERROR' then return t /return /if
+ return unencrypt(t,secretusernum*usernum) /return
+/function
+
+
+
+
+
+function syscall_with_commas(id,cmd) locals temp do
+ temp=syscall(id,^bin/echo ^+postprep('/'+cmd)+^ | sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b" | /bin/bash^)
+ if ci_prefs[1,17]<>0 then
+  append id+' Command: '+cmd to file="/apps/imageservices/syscall.log" /append
+ /if
+ return temp /return
+/function
+
+
+function system_with_commas(cmd) do
+ return syscall('System_with_commas',^bin/echo ^+postprep('/'+cmd)+^ | sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b" | /bin/bash^) /return
+/function
+
+
+
+function curl_include_response_header(url,options,method,request,header) locals outfile do
+ outfile='/upload/'+secretusernum+'_'+hash(url+header)+'.bin'
+ return curl_ALL(url,options,method,request,header,outfile,'TRUE') /return
+/function
+
+
+
+function curl(url,options,method,request,header) locals outfile do
+ outfile='/upload/'+secretusernum+'_'+hash(url+header)+'.bin'
+ return curl_ALL(url,options,method,request,header,outfile,'FALSE') /return
+/function
+
+function curl_file(url,options,method,request,header,outfile) do
+ return curl_ALL(url,options,method,request,header,outfile,'BOTH') /return
+/function
+
+
+
+function curl_ALL(url,options,method,request,header,outfile,includeheader) locals temp,response,x,head,outfileFullPath,shellcommand,outfile2,e,r do
+ outfile2='/upload/'+secretusernum+'_'+hash(url+header)+'.bin'
+ if isinteger(options) or options+0=options then options='ERROR' /if
+ outfileFullPath=replaceall(htmlos.conf.HTMLOSPrivate+outfile,'//','/')
+ e=''
+ if includeheader='TRUE' then
+  head=' -i'
+ elif includeheader='BOTH' then
+  head=' -v'
+  e=RD2GTAMP1
+ else
+  head=''
+ /if
+ if left(request,1)='@' then
+  request='@'+ci_getpath(replace(request,'@',''))
+ /if
+ if header<>'' and header<>'ERROR' then
+  temp=split(header,cr+lf)
+  for name=temp rowname=x do
+   head=head+showwith(^ -H '^,replaceall(replaceall(replaceall(x[1],^'^,^'\''^),lf,''),cr,''),^'^)
+  /for
+  head=head+^ -H '^+replaceall('Accept:',^'^,^'\''^)+^'^
+ /if
+ request=showwith(^-d $'^,replaceall(replaceall(request,lf,'\n'),^'^,^'\''^),^'^)
+ shellcommand=^usr/bin/curl^+head+^ -A '' -X ^+method+^ ^+request+^ -k '^+replaceall(URL,^'^,^\''^)+^' --output '^+outfileFullPath+^'^+showwith(' ',options,'')
+ if count(shellcommand,',')>0 then
+  temp=trim(syscall('Test for wrapped script',^bin/ls /usr/bin/syscall.sh^))
+  if count(temp,'syscall.sh')>0 then
+   response=syscall('CURL via syscall.sh',^usr/bin/syscall.sh ^+postprep('/'+shellcommand+e))
+  else
+   response=syscall_with_commas('CURL supressed commas',shellcommand+e)
+  /if
+ else
+  response=syscall('CURL',shellcommand+e)
+ /if
+
+ if includeheader='BOTH' then
+  temp=split(response,cr+lf)
+  r=''
+  for name=temp rowname=x do
+   if left(x[1],2)='< ' then
+    r=r+replace(x[1],'< ','')+cr+lf
+   /if
+  /for
+  response=replaceall(r,cr+lf+cr+lf,cr+lf)+cr+lf+outfile
+ /if
+
+ if outfile=outfile2 then
+  if isfile(outfile) then response=BINTOTEXT(outfile) sysrm(outfile) /if
+  if count(response,'^n')>0 then
+   # Hmmm looks like a binary file we found at least 1 ^n in the text BINTOTEXT escapes null (^n) and caret (^d)  /#
+  else
+   # Since we do not have any null values escaped by ^n then we do not need any escaped carets (^d)               /#
+   response=replaceall(response,'^d','^')
+  /if
+ /if
+
+ return response /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function ci_getfid(path) locals p,fid,x do
+ p=ci_extract(path)
+ fid=p[1]+p[6]+p[2]+p[3]+p[4]+".fid"
+ copy file=fid ts="," to x /copy
+ return x /return
+/function
+
+
+
+function ci_makefid(path) locals p,s,fid,fpath,r,x do
+ x=fileinfo(path)
+ s=1 r=random(1000,9999)
+ p=ci_extract(path)
+   fid=p[1]+p[6]+p[2]+p[3]+      p[4]+".fid"
+ fpath=p[1]+p[6]+p[2]+p[3]+'_'+r+p[4]
+ x[6]=fid
+ x[7]=fpath
+ return x /return
+/function
+
+
+
+function ci_nocache(path) locals x do
+ x=ci_getfid(path)
+ if x='ERROR' then
+  x=ci_makefid(path)
+  if x[5]='PUBLIC' then
+   o=syscp(path,x[7])
+   COPY x to file=x[6] /copy
+   o=sysfixprivate(x[6])
+   o=sysfixpublic(x[7])
+  else
+   x[7]=path
+  /if
+ /if
+ return x[7] /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+function pushdivs(d) locals divs,x,temp,temp1,q do
+ if ajaxrequest()='TRUE' then
+  tempdivs=indirection(d) temp1=indirectionset(d,'ERROR')
+  temp=^clearImage='START';^+lf
+  q=''
+  if tempdivs<>'' and tempdivs<>'ERROR' then
+   for name=tempdivs rowname=x do
+    if x[1]='evalJS' then
+     temp=temp+x[2]+lf
+    else
+     q=q+x[1]+' '
+     temp=temp+^$('^+x[1]+^').innerHTML='^+JSONescape(x[2])+^';^+lf
+    /if
+   /for
+  /if
+  message=temp+^report('info','DIV Updates Complete: ^+q+^');^+lf+^clearImage='COMPLETE';^
+  temp=pushJS('message')
+ else
+  temp1=indirectionset(d,'ERROR')
+ /if
+ return 'FALSE' /return
+/function
+
+
+
+
+
+function pushJS(msg) locals temp,text,ar,d do
+ d=now d=lf+
+ "Expires: Mon, 26 Jul 1997 05:00:00 GMT"+lf+
+ "Last-Modified: "+left(getweekday(d,'short'),3)+', '+getday(d)+' '+getmonth(d,'short')+' '+getyear(d,'long')+' 23:59:59 GMT'+lf+
+ "Cache-Control: no-cache, must-revalidate"+lf+
+ "Pragma: no-cache"
+ text=indirection(msg) temp=indirectionset(msg,'ERROR')
+ if ajaxrequest='IFRAME' then
+  ajaxrequest="ERROR"
+  text=replaceall(text,'&lt;','&#60;')
+  text=replaceall(text,'&gt;','&#62;')
+  text=replaceall(text,'&amp;','&#38;')
+  webpush(text,"text/plain;charset=UTF-8"+d)
+ else
+  ajaxrequest="ERROR"
+  webpush(text,"application/javascript;charset=UTF-8"+d)
+ /if
+/function
+
+
+
+
+
+function pushgoto(url) locals temp do
+ if ajaxrequest()='TRUE' then
+  if left(url,7)='http://' or left(url,8)='https://' then
+   CI_MSG_QGT_HGCIS=^clearImage='START';^+lf+^window.location='^+url+^';^+lf+^clearImage='COMPLETE'^
+  else
+   CI_MSG_QGT_HGCIS=^clearImage='START';^+lf+^window.location='^+getlink1(url)+^';^+lf+^clearImage='COMPLETE'^
+  /if
+  temp=pushJS('CI_MSG_QGT_HGCIS')
+ /if
+ return 'FALSE' /return
+/function
+
+
+
+
+
+function pushgetlink(url,n,v) locals temp do
+ if ajaxrequest()='TRUE' then
+  message=^clearImage='START';^+lf+^window.location='^+getlink3(url,n,v)+^';^+lf+^clearImage='COMPLETE'^
+  temp=pushJS('message')
+ /if
+ return 'FALSE' /return
+/function
+
+
+
+
+
+function adddiv(div,a,b) locals temp do
+ temp[1]=a temp[2]=b
+ return appends(div,temp) /return
+/function
+
+
+
+
+
+function ajaxrequest() locals temp,a do
+ if ajaxrequest="TRUE"   then return "TRUE" /return /if
+ if ajaxrequest="IFRAME" then return "TRUE" /return /if
+ a=getenv('QUERY_STRING')
+ if a="ERROR" or a='' then a=sysstdin /if
+ if count(a,'ajaxrequest=TRUE')>0 or ajaxrequest="TRUE" then
+  ajaxrequest="TRUE"
+  return 'TRUE' /return
+ elif count(a,'ajaxrequest=IFRAME')>0 or ajaxrequest="IFRAME" then
+  ajaxrequest="IFRAME"
+  return 'TRUE' /return
+ else
+  return 'FALSE' /return
+ /if
+/function
+
+
+
+
+
+function arrayJS(x) locals i,j do
+ j='['
+ for name=i value=1 to rows(x) do
+  j=j+'"'+replaceall(replaceall(x[1,i],'"','\"'),lf,'\n')+'",'
+ /for
+ j=left(j,length(j)-1)+']'
+ return j /return
+/function
+
+
+
+
+function viewHEX(text) locals x,textout,t,i do
+  text=replaceall(text,'	','{{|----|}}')
+  text=replaceall(text,cr+lf,'{{CRPLUSLF}}')
+  x=1
+  textout=''
+  while x<length(text)+1 do
+   t=middle(text,x,x)
+   i=getascii(t)
+   if i<32 or i>126 then
+    textout=textout+'[<small>'+i+'</small>]'
+   else
+    textout=concat(textout,t)
+   /if
+   x=x+1
+  /while
+  textout=replaceall(textout,'{{|----|}}','→')
+  textout=replaceall(textout,'{{CRPLUSLF}}','⏎<br>')
+  return textout /return
+/function
+
+
+
+
+function cleansource(text) do
+ text=replaceall(text,'	',' ')
+ text=replaceall(text,'&','&amp;')
+ text=replaceall(text,'<','&lt;')
+ text=replaceall(text,'>','&gt;')
+ text=replaceall(text,cr+lf,'<br>')
+ text=replaceall(text,lf,'<br>')
+ text=replaceall(text,cr,'<br>')
+ return text /return
+/function
+
+
+
+function viewsource(text) do
+  text=replaceall(text,'	','{{|----|}}')
+  text=replaceall(text,'&','&amp;')
+  text=replaceall(text,'<','&lt;')
+  text=replaceall(text,'>','&gt;')
+  text=replaceall(text,cr+lf,'{{CRPLUSLF}}')
+  text=replaceall(text,lf,'[<small>LF</small>]<br>')
+  text=replaceall(text,cr,'[<small>CR</small>]<br>')
+  return '<font style="font-family:monospace;">'+viewHEX(text)+'</font>' /return
+/function
+
+
+
+
+
+function appends(a,b) do
+ if b='' or b='ERROR' then return a /return /if
+ if a='ERROR' or a='' then return b /return else
+ return append(a,b) /return /if
+/function
+
+
+function chopchopleft(a,b)        do return replace(chopleft(a,b),b,'')                    /return /function
+
+function chopchopright(a,b)       do return reverse(chopchopleft(reverse(chopright(a,b)),reverse(b))) /return /function
+ # 
+ # function chopchopright(a,b)       do return reverse(replace(reverse(chopright(a,b)),b,'')) /return /function
+/#
+
+function chopchopleftright(a,b,c) do return chopchopright(chopchopleft(a,b),c)             /return /function
+
+
+
+
+function javascriptidname(text) do
+ return 
+  replaceall(
+   replaceall(
+    replaceall(
+     replaceall(aestivafilename(text),'.','')
+       ,'/','')
+      ,'-','')
+    ,"'","_")
+ /return
+/function
+
+
+
+
+
+function showwith(a,b,c) do
+ if b<>'' and b<>'ERROR' and b<>'FALSE' then
+  return a&b&c /return
+ else
+  return '' /return
+ /if
+/function
+
+
+
+
+
+function showif(a,b) do
+ if b='' or b='ERROR' or b='FALSE' then
+  return '' /return
+ else
+  return a /return
+ /if
+/function
+
+function showifnot(a,b) do
+ if b='' or b='ERROR' or b='FALSE' then
+  return a /return
+ else
+  return '' /return
+ /if
+/function
+
+function ifthen(ifthen_cond,ifthen_a,ifthen_b) locals ifthen_temp,ifthen_v do
+ ifthen_temp='if '+ifthen_cond+' then ifthen_v=ifthen_a else ifthen_v=ifthen_b /if'
+ $(ifthen_temp)
+ return ifthen_v /return
+/function
+
+
+
+
+
+function JSONescape(text) do
+ text=replaceall(text,'\','\\')
+ text=replaceall(text,'"','\"')
+ text=replaceall(text,"'","\'")
+ text=replaceall(text,'/','\/')
+ text=replaceall(text,lf,'\n')
+ text=replaceall(text,cr,'\r')
+ return text /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Image Services Map of this library
+  1 - Image functions
+  2 - Text Editor Related Functions
+  3 - getlink() replacements
+  4 - Download/Upload related stuff All has been deprecated with fileinfo2(path)
+  5 - Deprecated Here for Compatability (No longer using l,n,v,j style links
+  6 - Specialized Image Functions
+  7 - File Managment Functions
+  8 - Undocumented
+  9 - Code Executed from this library
+ 10 - Version History
+/#
+
+
+
+
+
+function ci_putmeta(path,data) locals metapath,t,temp,x,y,file_path,file_name,file_title,file_description,file_date,file_sort do
+
+ # we use domainid instead of domainname so that we can have churchblocks show other domains /#
+ if domainid='ERROR' then domainid=domainname /if
+ if count(path,'/domain/'+domainid+'/')>0 and domainid<>'wbl.me' then
+  metapath='/domain/'+domainid+'/database/meta'
+  path=replace(path,'/domain/'+domainid+'/','/home/')
+  data[2,1]=replace(data[2,1],'/domain/'+domainid+'/','/home/')
+ else
+  metapath='/apps/imageservices/data/meta'
+ /if
+
+
+
+ if data[4,1]='TITLE:' then data[4,1]='' /if
+ if data[5,1]='COMMENT:' then data[5,1]='' /if
+
+ path=replaceall(path,"//","/")
+ t=ci_extract(path)
+ if data[2,1]=t[1,1] and data[3,1]=t[2,1]+t[4,1] then
+  file_record     =data[1,1]      temp[1,1]=file_record
+ else
+  data2=ci_getmeta(path)
+  file_record     =data2[1,1]     temp[1,1]=file_record
+ /if
+ file_path        =t[1,1]         temp[2,1]=file_path
+ file_name        =t[2,1]+t[4,1]  temp[3,1]=file_name
+ file_title       =data[4,1]      temp[4,1]=file_title
+ file_description =data[5,1]      temp[5,1]=file_description
+                                  temp[6,1]=data[6,1]
+ file_lastedit    =now            temp[7,1]=file_lastedit
+ file_sort        =data[8,1]      temp[8,1]=data[8,1]
+ x=dbedit(metapath,file_record,'file_path,file_name,file_title,file_description,file_lastedit,file_sort')
+ x=dbindex(metapath,1000)
+ return temp /return
+/function
+
+
+
+
+
+
+
+
+function ci_getmeta(path) locals c,metapath,t,temp,x,y,file_path,file_name,file_title,file_description,file_date,file_lastedit,data,file_sort do
+
+ # we use domainid instead of domainname so that we can have churchblocks show other domains /#
+ if domainid='ERROR' then domainid=domainname /if
+ if count(path,'/domain/'+domainid+'/')>0 and domainid<>'wbl.me' then
+  metapath='/domain/'+domainid+'/database/meta'
+  path=replace(path,'/domain/'+domainid+'/','/home/')
+ else
+  metapath='/apps/imageservices/data/meta'
+ /if
+
+
+ path=replaceall(path,"//","/")
+ t=ci_extract(path)
+ temp=dbsearch(metapath,'file_PATH="'+t[1,1]+'" AND file_NAME="'+t[2,1]+t[4,1]+'"',1,1000)
+ c=tagresults[5,1]
+ if c>0 then
+  q='ERROR'
+  for name=temp rowname=x do
+   if q='ERROR' then
+    q=''
+   else
+    dbdelete(metapath,x[1])
+   /if
+  /for
+  if c>1 then dbpurge(metapath) dbindex(metapath,1000) /if
+  temp[2,1]=replace(temp[2,1],'/home/','/domain/'+domainid+'/')
+  file_record=temp[1,1]
+  file_path=temp[2,1]
+  file_name=temp[3,1]
+  file_title=temp[4,1]
+  file_description=temp[5,1]
+  file_date=temp[6,1]
+  file_sort=temp[8,1]
+ else
+  file_path=t[1,1]        temp[2,1]=t[1,1]
+  temp[2,1]=replace(temp[2,1],'/home/','/domain/'+domainid+'/')
+  file_name=t[2,1]+t[4,1] temp[3,1]=t[2,1]+t[4,1]
+  file_title=''           temp[4,1]=''
+  file_description=''     temp[5,1]=''
+  file_date=now           temp[6,1]=file_date
+  file_lastedit=file_date temp[7,1]=file_date
+  x=dbadd(metapath)
+  file_record=x[2,1]      temp[1,1]=x[2,1]
+  x=dbindex(metapath,1000)
+ /if
+ return temp /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+function ci_getmetadir(path) locals metapath,t,temp,x,y,file_path,file_name,file_title,file_description,file_date,file_lastedit,data,file_sort do
+ # we use domainid instead of domainname so that we can have churchblocks show other domains /#
+ if domainid='ERROR' then domainid=domainname /if
+ if count(path,'/domain/'+domainid+'/')>0 and domainid<>'wbl.me' then
+  metapath='/domain/'+domainid+'/database/meta'
+  path=replace(path,'/domain/'+domainid+'/','/home/')
+ else
+  metapath='/apps/imageservices/data/meta'
+ /if
+ path=replaceall(path,"//","/")
+ temp=dbsearch(metapath,'FILE_PATH="'+replace(path,'/domain/'+domainid+'/','/home/')+'"',1,1000)
+ if dbresults[5,1]>0 then
+  for name=temp rownum=x do
+   temp[2,x]=replace(temp[2,x],'/home/','/domain/'+domainid+'/')
+  /for
+  return temp /return
+ else
+  return 'ERROR' /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Image functions /#
+
+
+function DLLci_imageALLALLoptions(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,editlink,icon,overwrite,id) locals ci_temp,wh,p,p2,p3,pi,ps,r,mp,origpath,f,pp,xx,yy,ll,tempx,tempy do
+
+ if ci_prefs='ERROR' or ci_prefs='' then
+  # Image Services is not installed /#
+  if x='' or x='ERROR' or x>1000 then x='' /if
+  if y='' or y='ERROR' or y>1000 then y='' /if
+  return '<img src="'+path+'" style="'+showwith('max-width:',x,'px;')+' '+showwith('max-height:',y,'px;')+'" border="0">' /return
+ /if
+
+ if left(path,1)<>'/' then path=dirname(page)+'/'+path /if
+ if right(y,1)="!" then y=left(y,length(y)-1) f='!' else f='' /if
+ origpath=path
+ x=trim(x) y=trim(y)
+ ci_temp=ci_timing("B4")
+ if ci_temp>ci_prefs[1,16] then ci_temp1=ci_timing("E4") return "TIMEOUT" /return /if
+ if x="ERROR" or not(isinteger(x)) or x<1 then x="" /if
+ if y="ERROR" or not(isinteger(y)) or y<1 then y="" /if
+ if x="" and isinteger(y) then x=9999 /if
+ if y="" and isinteger(x) then y=9999 /if
+
+ if isnumber(x) then
+  if isRetina='TRUE' then x=x*2 /if
+ /if
+ if isnumber(y) then
+  if isRetina='TRUE' then y=y*2 /if
+ /if
+
+
+
+ # OPTIONS
+        path - path to image
+           x - constrain width
+           y - constrain height
+           l - page to link to
+           n - variable name to set
+           v - value to set variable to
+           j - javascript or extra img tag parameters
+          lg - Login value (either TRUE or FALSE)
+          qt - override global quality setting
+         cmd - ImageMagick command to run cmdoptions on
+  cmdoptions - command line options for ImageMagick
+ /#
+#
+ path[1]=...directory
+ path[2]=...file w/o extension
+ path[3]=...TEMP Stuff
+ path[4]=...extension
+ path[5]=path[1]+path[2]+path[4]
+ path[6]=ci_prefs[1,11]
+/#
+ path=ci_extract(path)
+ pi=fileinfo(path[5])
+ if pi[2]>10000000 then
+  path="/apps/imageservices/images/filetobig"
+  path=ci_extract(path)
+  pi=fileinfo(path[5])
+ /if
+ ci_tagresults=pi
+ if (pi[4]="FILE" and pi[5]="PRIVATE" and (x='' or y='') and cmd="") or pi[4]<>"FILE" then
+  # (Can't display private files) OR File Doesn't Exist /#
+  if (pi[5]="PRIVATE" and (x='' or y='')) then
+    ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Private images can't be displayed resize to display (/ci_image)"
+    if lg='TRUE' then
+     if icon='pict' then
+      r=ci_uploadicon(path[5])+'PRIVATE IMAGE'
+     else
+      r=ci_uploadicons(path[5],editlink,icon)+'PRIVATE IMAGE'
+     /if
+
+    else
+     r="PRIVATE IMAGE"
+    /if
+  else
+   pi=ci_identify(path[5])
+
+
+   r=pi[1]
+   if pi[9]=4 then #FileNotFound/#
+     if lg="TRUE" then
+      ci_tagresults[11]=ci_tagresults[11]+"(ci_image) File Not Found (/ci_image)"
+      if icon='pict' then
+       r=ci_uploadicon(path[5])
+      else
+       r=ci_uploadicons(path[5],editlink,icon)
+      /if
+     else
+      ci_tagresults[11]=ci_tagresults[11]+"(ci_image) File Not Found (/ci_image)"
+      r=''
+     /if
+   /if
+   if pi[9]=5 then #DirectoryNotFound/#
+     if lg="TRUE" then
+      ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Directory Not Found (/ci_image)"
+      r="<table><tr><td bgcolor=#eeeeee>PATH TO IMAGE<br>DOESN'T EXIST<br><font color=red>"+path[1]+"</font>"+path[2]+path[4]+"</td></tr></table>"
+     else
+      ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Directory Not Found (/ci_image)"
+      r=""
+     /if
+   /if
+   if pi[9]=0 or pi[9]=2 or pi[9]=3 then
+     # Identify reported problems (unknown) (ImageNotIdentified) (FileIsDirectory) /#
+     ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Problems from ci_identify (/ci_image)"
+   /if
+   if pi[9]=6 then # No system Command, just return the image /#
+    ci_tagresults[11]=ci_tagresults[11]+"(ci_image) No System Command (/ci_image)"
+    pi[1]=""
+    pi[2]=""
+   /if
+  /if
+ else
+  # Ok File exists, now set p to path of temp file /#
+  if x="" or y="" then
+   if lg="TRUE" then
+    p=path[1]+path[6]+path[2]+ci_prefs[1,4]+ci_prefs[1,5]+path[4]
+   else
+    if pi[5]="PRIVATE" then
+     p=path[1]+path[6]+path[2]+ci_prefs[1,4]+path[4]
+    else
+     if ci_prefs[1,12]="TRUE" then
+      p=path[1]+path[6]+path[2]+ci_prefs[1,4]+path[4]
+     else
+      p=path[1]+path[2]+path[4]
+     /if
+    /if
+   /if
+  else
+
+   if id='' or id='ERROR' then id=x+"x"+y else id=x+"x"+y+id /if
+   if lg="TRUE" then
+    p=path[1]+path[6]+path[2]+ci_prefs[1,4]+ci_prefs[1,5]+id+path[4]
+   else
+    p=path[1]+path[6]+path[2]+ci_prefs[1,4]+id+path[4]
+   /if
+  /if
+  # Ok identify temp file then create if needed /#
+  p2=ci_identify(p)
+  p3=p2 ps=p
+
+
+  p=p2[10] # p2[10] should echo p back. Unless using nocache option, then it echos the new temp file location /# 
+  if p2[4]<>"FILE" or OVERWRITE='TRUE' then
+   ci_temp=ci_rmfile(p)
+   p2=ci_convertimagealloptions(path[5],ps,x,y+f,qt,cmd,cmdoptions,icon)
+   p=p2[10]
+  /if
+  ci_tagresults=p2
+  # Image exists, generate display /#
+  if p2[9]<>1 and p2[9]<>6 then
+   if lg='TRUE' then
+    r='ERROR:'+ci_popup(origpath,'Unknown Image or Image Services Failure (ci_image)')
+   else
+    r=''
+   /if
+   ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Something went wrong possibly with ci_convert (/ci_image)"
+  else
+   # Ok, return image /#
+   p=replaceall(replaceall(p,"//","/"),'//','/')
+
+
+   if isRetina='TRUE' then
+    tempx=p2[1]/2
+    tempy=p2[2]/2
+    if p2[9]=6 then wh=" "+imgoptions else wh=' width="'+tempx+'" height="'+tempy+'" '+imgoptions /if
+   else
+    if p2[9]=6 then wh=" "+imgoptions else wh=' width="'+p2[1]+'" height="'+p2[2]+'" '+imgoptions /if
+   /if
+
+
+
+
+   mp=replaceall(replaceall(p,'/',''),".","")+"x"+random(10,99)
+   if left(icon,1)='/' or icon='upload' then imgupload='' else imgupload='<area shape="rect" alt="" coords="0,0,11,11" '+ci_pophref(path[1]+path[2]+path[4])+'>' /if
+   r='<img src="'+urlprep(p)+'"'+wh+' usemap="#'+mp+'"><map name="'+mp+'">'+imgupload+editlink
+   if link="" or link='ERROR' then
+    if lg="TRUE" then
+     ci_tagresults[11]=ci_tagresults[11]+"(ci_image) No Link, Logged in (/ci_image)"
+     r=r+'</map>'
+    else
+     ci_tagresults[11]=ci_tagresults[11]+"(ci_image) No Link, Logged out (/ci_image)"
+     r='<img src="'+urlprep(p)+'"'+wh+'>'
+    /if
+   else
+    if lg="TRUE" then
+     ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Link, Logged in (/ci_image)"
+     r=r+'<area shape="rect" alt="" coords="0,12,12,'+p2[2]+'" '+ci_parsehref(link)+'>
+          <area shape="rect" alt="" coords="12,0,'+p2[1]+','+p2[2]+'" '+ci_parsehref(link)+'></map>'
+    else
+     ci_tagresults[11]=ci_tagresults[11]+"(ci_image) Link, Logged out (/ci_image)"
+     r='<a '+ci_parsehref(link)+'><img src="'+urlprep(p)+'"'+wh+'></a>'
+    /if
+   /if
+  /if
+ /if
+ ci_temp=ci_timing("E4")
+ ci_tagresults[12]=link
+ return r /return
+/function
+
+
+
+function ci_img(path,x,y,lg) locals temp do
+ return ci_imagealloptions(path,x,y,lg,"","","",'border="0"',"","",'pict') /return
+/function
+
+
+
+
+
+function ci_img2(path,x,y,lg,qt,cmd,cmdoptions) do
+ # this allows for additional options to be applied to the image /#
+ return ci_imagealloptions(path,x,y,lg,qt,cmd,cmdoptions,'border="0"',"","",'pict') /return
+/function
+
+
+
+
+
+function ci_imgnr(path,x,y,lg) locals temp do
+ return ci_imagenrall(path,x,y,lg,"","","",'border="0"',"","",'pict') /return
+/function
+
+
+
+
+
+function ci_imgnr2(path,x,y,lg,qt,cmd,cmdoptions) do
+ # this allows for additional options to be applied to the image /#
+ return ci_imagenrall(path,x,y,lg,qt,cmd,cmdoptions,'border="0"',"","",'pict') /return
+/function
+
+
+
+
+
+function ci_imagenrall(path,x,y,lg,qt,cmd,cmdoptions,imgoptions,link,el,icon) locals p,img,ci_temp do
+ if qt="" then qt=ci_prefs[1,2] /if
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ p=ci_extract(path)
+ img=ci_identify(p[1]+p[2]+p[4])
+ if img[1]>x or img[2]>y then
+  return ci_imagealloptions(p[1]+p[2]+p[4],x,y,lg,qt,cmd,cmdoptions,imgoptions,link,el,icon) /return
+ else
+  return ci_imagealloptions(p[1]+p[2]+p[4],'','',lg,qt,cmd,cmdoptions,imgoptions,link,el,icon) /return
+ /if
+/function
+
+
+
+
+function ci_eps(path,x,y,login,epsx,epsy) locals ci_temp,ci_temp1 do
+ ci_temp=x/epsx
+ ci_temp1=y/epsy
+ if ci_temp<ci_temp1 then ci_temp=ci_temp1 /if
+ ci_temp=140*ci_temp
+ ci_temp=ci_showps(path,epsx,epsy,ci_temp)
+ ci_temp=ci_imagealloptions(path+'.png',x,y,lg,"","","",'border="0"',"","",'pict')
+ ci_temp1=sysrm(path+'.png')
+ return ci_temp /return
+/function
+
+
+
+
+
+function ci_link(path,x,y,lg) locals temp,link,a,b,c,d,lnk do
+ temp=ci_extract(path)
+ if isfile(temp[1,1]+temp[2,1]+".href") then
+  copy file=temp[1,1]+temp[2,1]+".href" to link /copy
+ else
+  link=""
+ /if
+ lnk='<area shape="rect" alt="" coords="12,0,23,11" '+ci_pophrefeditor(temp[1]+temp[2]+'.href')+'>'
+ return ci_imagealloptions(path,x,y,lg,"","","",'border="0"',link,lnk,'pictlink') /return
+/function
+
+
+
+
+
+function ci_imglink(path,x,y,link,lg) locals temp do
+ return ci_imagealloptions(path,x,y,lg,"","","",'border="0"',link,'','pict') /return
+/function
+
+
+
+
+
+function ci_imglink2(path,x,y,link,imgopts,lg) locals temp do
+ if imgopts='' or imgopts='ERROR' then imgopts='border="0"' /if
+ return ci_imagealloptions(path,x,y,lg,"","","",imgopts,link,'','pict') /return
+/function
+
+
+
+
+
+function ci_geturl(path,x,y,lg) locals p do
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ return sysstartlink+"/nosession/apps/imageservices/dynamicimage.html?image="+postprep(x+","+y+","+lg+","+path)+"&rnd="+random(1000,9999) /return
+/function
+
+
+function ci_img_custom(imgpath,customimg,x,y,login,link,iconpath,iconwidth,iconheight,popupwidth,popupheight) do
+ editlink='<area shape="rect" alt="" coords="0,0,'+iconwidth+','+iconheight+'" '+ci_parsehrefall('HREF="'+getlink(ci_prefs[1,9],"ci_imagepath",customimg)+'" popup="'+popupwidth+','+popupheight+'"','CUSTOM','ERROR')+'>'
+ return ci_imageALLALLoptions(imgpath,x,y,login,'','','','',showwith('href="',link,'"'),editlink,iconpath,'','') /return
+/function
+
+
+
+
+# END Image functions /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Text Editor Related Functions /#
+
+
+
+
+
+function ci_text(path,w,h,link,search,lg) locals text do
+ if lg="ERROR" or lg="" then lg="FALSE" /if
+ if left(path,1)="/" then else path=dirname(page)+path /if
+#copy file=path to text /copy /#
+ text=bintotext(path)
+ if text="ERROR" then text="" /if
+ if search='[SIMPLE]' then
+  while count(text,'<')>count(text,'>') do
+   text=replace(text,'<','&lt;')
+  /while
+ /if
+ text=text+ci_edit2(path,w,h,link,lg)
+ return text /return
+/function
+
+
+
+
+function ci_edit(path,w,h,linktext,search,permissionlevel) locals retpath,temp do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ retpath=page
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+
+  if isfile('/apps/files/helpers/editor.html') then
+   temp='/apps/files/helpers/editor.html'
+  elif isfile('/apps/imageservices/editor.html') then
+   temp='/apps/imageservices/editor.html'
+  else
+   temp=error(404)+'?path='+postprep(path)
+  /if
+
+  return '<A '+ci_parsehrefall('HREF="'+temp+'" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+
+function ci_edit_astext(path,w,h,linktext,permissionlevel) locals retpath,search,x,temp do
+ if left(path,1)="/" or left(path,1)="@" then else path=dirname(page)+path /if
+ retpath=page
+ search=''
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+
+  if isfile('/apps/editor/editor.html') then
+   temp='/apps/editor/editor.html'
+  elif isfile('/apps/imageservice/editor.html') then
+   temp='/apps/imageservices/editor.html'
+  else
+   temp=error(404)+'?path='+postprep(path)
+  /if
+  return '<A '+ci_parsehrefall('HREF="'+temp+'" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+
+
+
+function ci_edit2(path,w,h,linktext,permissionlevel) locals retpath,search,x,temp do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ retpath=page
+ search=''
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+
+
+  if isfile('/apps/files/helpers/editor.html') then
+   temp='/apps/files/helpers/editor.html'
+  elif isfile('/apps/imageservices/editor.html') then
+   temp='/apps/imageservices/editor.html'
+  else
+   temp=error(404)+'?path='+postprep(path)
+  /if
+
+  return '<A '+ci_parsehrefall('HREF="'+temp+'" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+
+
+function ci_JSONview(path,w,h,linktext,permissionlevel) locals retpath,search do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ retpath=page
+ search=''
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+  return '<A '+ci_parsehrefall('HREF="/apps/editor/jsonviewer.html" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+function ci_XMLview(path,w,h,linktext,permissionlevel) locals retpath,search do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ retpath=page
+ search=''
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+  return '<A '+ci_parsehrefall('HREF="/apps/editor/xmlviewer.html" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+
+
+function ci_CSVview(path,w,h,linktext,permissionlevel) locals retpath,search do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ retpath=page
+ search=''
+ if permissionlevel='FALSE' then
+  return '' /return
+ else
+  return '<A '+ci_parsehrefall('HREF="/apps/editor/csvviewer.html" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+permissionlevel+'" popup="'+w+','+h+'"',"CI"+path,'status=yes,scrollbars=no,resizable=yes,left=50')+'>'+linktext+'</A>' /return
+ /if
+/function
+
+
+
+
+
+
+function ci_csv(path,w,h,link,search,lg) locals retpath do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ if isinteger(w) then retpath=page else retpath=w /if
+ if lg="TRUE" then
+  return '<A HREF="/apps/imageservices/edittable.html" name="ci_programparams" value="'+path+'|'+search+'|'+retpath+'|'+w+'|'+h+'|'+lg+'" target="_parent">'+link+'</A>' /return
+ else
+  return "" /return
+ /if
+/function
+
+
+
+
+
+# END Text Editor Related Functions /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START getlink() replacements /#
+
+
+
+
+function ci_link1(p) locals x do
+ if left(p,7)='http://'  then return p /return /if
+ if left(p,8)='https://' then return p /return /if
+ if urltag='TRUE' then
+  return getlink5(p,'','',urltag(),'') /return
+ else
+  return getlink1(p) /return
+ /if
+/function
+
+
+function ci_link2(path,x,y,imgopts,lg) locals temp,link,a,b,c,d,lnk do
+ if ci_registeredversion<3 then return "ci_link(path,x,y,login) requires Image Services 3.0 or greater" /return /if
+ temp=ci_extract(path)
+ if isfile(temp[1,1]+temp[2,1]+".href") then
+  copy file=temp[1,1]+temp[2,1]+".href" to link /copy
+ else
+  link=""
+ /if
+ if imgopts='' or imgopts='ERROR' then imgopts='border="0"' /if
+ lnk='<area shape="rect" alt="" coords="12,0,23,11" '+ci_pophrefeditor(temp[1]+temp[2]+'.href')+'>'
+ return ci_imagealloptions(path,x,y,lg,"","","",imgopts,link,lnk,'pictlink') /return
+/function
+
+
+
+
+
+function ci_link3(p,n,v) do
+ if urltag='TRUE' then
+  return getlink5(p,n,v,urltag(),'') /return
+ else
+  return getlink3(p,n,v) /return
+ /if
+/function
+
+
+function getlink1_state(pg,state) do
+ return getlink1(pg)+getstate('# getlink1 /#'+lf+state) /return
+/function
+
+function getlink1(pg) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)) /return
+ else
+  return getlink(pg) /return
+ /if
+/function
+
+
+
+
+
+
+function getlink3_state(pg,nm,vl,state) do
+ return getlink3(pg,nm,vl)+getstate('# getlink3 /#'+lf+state) /return
+/function
+
+function getlink3(pg,nm,vl) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)+'/'+e_(nm)+'/'+e_(vl)) /return
+ else
+  return getlink(pg,nm,vl) /return
+ /if
+/function
+
+
+function getlink4_state(pg,nm,vl,tg,state) do
+ return getlink4(pg,nm,vl,tg)+getstate('# getlink4 /#'+lf+state) /return
+/function
+
+function getlink4(pg,nm,vl,tg) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)+'/'+e_(nm)+'/'+e_(vl))+'/'+tg /return
+ else
+  return getlink(pg,nm,vl,'',tg) /return
+ /if
+/function
+
+
+
+
+
+function getlink5_state(pg,nm,vl,tg,sv,state) do
+ return getlink5(pg,nm,vl,tg,sv)+getstate('# getlink5 /#'+lf+state) /return
+/function
+
+function getlink5(pg,nm,vl,tg,sv) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)+'/'+e_(nm)+'/'+e_(vl))+'/'+e_(sv)+'/'+tg /return
+ else
+  return getlink(pg,nm,vl,tg,sv) /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+function getlink6_state(pg,nm,vl,tg,sv,nl,state) do
+ return getlink6(pg,nm,vl,tg,sv,nl)+getstate('# getlink6 /#'+lf+state) /return
+/function
+
+function getlink6(pg,nm,vl,tg,sv,nl) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)+'/'+e_(nm)+'/'+e_(vl))+'/'+e_(sv)+'/'+e_(nl)+'/'+tg /return
+ else
+  return getlink(pg,nm,vl,tg,sv,nl) /return
+ /if
+/function
+
+
+
+
+
+
+
+
+function getlink7_state(pg,nm,vl,tg,sv,nl,tp,state) do
+ return getlink7(pg,nm,vl,tg,sv,nl,tp)+getstate('# getlink7 /#'+lf+state) /return
+/function
+
+function getlink7(pg,nm,vl,tg,sv,nl,tp) do
+ if usernum*1=0 then
+  return route('/app/getlink/'+e_(pg)+'/'+e_(nm)+'/'+e_(vl))+'/'+e_(sv)+'/'+e_(nl)+'/'+e_(tp)+'/'+tg /return
+ else
+  return getlink(pg,nm,vl,tg,sv,nl,tp) /return
+ /if
+/function
+
+
+
+
+function getstate(code) locals x,thisstatedir do
+
+ if isdir(statedir) then thisstatedir=statedir else thisstatedir='/upload/' /if
+
+ if code='' then
+  x='ERROR'
+  $(getvariables(getenv('QUERY_STRING'),'x=d(unpostprep(EXTERNAL_state))'))
+  if x<>'' and x<>'ERROR' then
+   if isfile(thisstatedir+x+'.txt') then
+    copy file=thisstatedir+x+'.txt' to x /copy
+    if x<>'' and x<>'ERROR' then return x /return /if
+   /if
+  /if
+  return '' /return
+ else
+  x=idgen()
+  copy code to file=thisstatedir+x+'.txt' /copy
+  sysfixprivate(thisstatedir+x+'.txt')
+  return '?state='+e(x) /return
+ /if
+/function
+
+
+
+
+
+
+# END getlink() replacements /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function route(path) do
+ if locate(path,':')=0 then
+  if publicurl='ERROR' then
+   publicurl=syspublicurl
+  /if
+  if iconpage='ERROR' then
+   return publicurl+path /return
+  else
+   if route_session='ERROR' then
+    route_session=replace(getlink1("/apps/route/index.html"),'/'+cginame+'/'+syshtmlosname+'/','/')+'/_'
+   /if
+   return route_session+path /return
+  /if
+ else
+  return path /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Download/Upload related stuff All has been deprecated with fileinfo2(path) /#
+
+
+
+
+
+function ci_file(downfile,x,lg) locals text,link,downname,temp,mp,img,ftype,a do
+ if ci_registeredversion<3 then return "ci_download(downfile,image,x,y,login) requires Image Services 3.0 or greater" /return /if
+ # Choose Icon and file type /#
+ if count(downfile,".")=0 then ftype="pict" else ftype=lower(ci_filetype(downfile)) /if
+ if x='small' then
+  img='/apps/imageservices/images/'+ftype+'-small.gif'
+ elif x='large' then
+  img='/apps/imageservices/images/'+ftype+'-large.gif'
+ else
+  img='/apps/imageservices/images/'+ftype+'-128.gif'
+ /if
+ downname=downfile
+ if ftype='pict' then
+  temp=ci_identify(downfile)
+  if temp[3]="PNG" and right(downfile,4)<>".png" then downname=downname+'.png' /if
+  if temp[3]="JPEG" and (right(downfile,4)<>".jpg" or right(downfile,5)<>".jpeg") then downname=downname+'.jpg' /if
+  if temp[3]="GIF" and right(downfile,4)<>".gif" then downname=downname+'.gif' /if
+ /if
+ if left(downfile,1)<>"/" then downfile=dirname(page)+downfile /if
+ if left(img,1)<>"/" then img=dirname(page)+img /if
+ if isfile(downfile) then
+  a=fileinfo(downfile)
+  if a[5]='PUBLIC' then
+   link='href="'+SYSPUBLICURL+replace(downfile,'//','/')+'"'
+  else
+   link='href="'+filepushlink("/apps/imageservices/download.html","ci_pushfile",downfile,downname)+'"'
+  /if  
+ else
+  if lg="TRUE" then
+   link=""
+  else
+   return '' /return
+  /if
+ /if
+ mp='<area shape="rect" alt="" coords="0,0,11,11" '+ci_pophref(downfile)+'>'
+ return ci_imagealloptions(img,'','',lg,"","","",'border="0"',link,mp,'upload') /return
+/function
+
+
+
+
+
+function ci_pushfile(downfile) locals text,link,downname,temp,mp do
+ if ci_registeredversion<3 then return "ci_pushfile(downfile,image,x,y,login) requires Image Services 3.0 or greater" /return /if
+ downname=downfile
+ temp=ci_identify(downfile)
+ if temp[3]="PNG" and right(downfile,4)<>".png" then downname=downname+'.png' /if
+ if temp[3]="JPEG" and (right(downfile,4)<>".jpg" or right(downfile,5)<>".jpeg") then downname=downname+'.jpg' /if
+ if temp[3]="GIF" and right(downfile,4)<>".gif" then downname=downname+'.gif' /if
+ if left(downfile,1)<>"/" then downfile=dirname(page)+downfile /if
+ if left(img,1)<>"/" then img=dirname(page)+img /if
+ if isfile(downfile) then
+  link=filepushlink("/apps/imageservices/download.html","ci_pushfile",downfile,downname)
+ else
+  link="ERROR"
+ /if
+ return link /return
+/function
+
+
+
+
+
+function ci_download(downfile,img,x,y,lg) locals text,link,downname,temp,mp do
+ if ci_registeredversion<3 then return "ci_download(downfile,image,x,y,login) requires Image Services 3.0 or greater" /return /if
+ downname=downfile
+ temp=ci_identify(downfile)
+ if temp[3]="PNG" and right(downfile,4)<>".png" then downname=downname+'.png' /if
+ if temp[3]="JPEG" and (right(downfile,4)<>".jpg" or right(downfile,5)<>".jpeg") then downname=downname+'.jpg' /if
+ if temp[3]="GIF" and right(downfile,4)<>".gif" then downname=downname+'.gif' /if
+ if left(downfile,1)<>"/" then downfile=dirname(page)+downfile /if
+ if left(img,1)<>"/" then img=dirname(page)+img /if
+ if isfile(downfile) then
+  link='href="'+filepushlink("/apps/imageservices/download.html","ci_pushfile",downfile,downname)+'"'
+ else
+  if lg="TRUE" then
+   link=""
+  else
+   return '' /return
+  /if
+ /if
+ mp='<area shape="rect" alt="" coords="12,0,23,11" '+ci_pophref(downfile)+'>'
+ return ci_imagealloptions(img,x,y,lg,"","","",'border="0"',link,mp,'pictupload') /return
+/function
+
+
+
+
+
+function ci_popup(path,x) do
+ if left(path,1)="/" then else path=dirname(page)+path /if
+ if count(path,ci_prefs[1,11])>0 then 
+  return '' /return
+ else
+  return '<A '+ci_pophref(path)+'>'+x+'</A>' /return
+ /if
+/function
+
+
+
+
+
+function ci_upload(path,x) do
+ return ci_popup(path,x) /return
+/function
+
+
+
+
+
+# END Download/Upload related stuff All has been deprecated with fileinfo2(path) /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Deprecated Here for Compatability (No longer using l,n,v,j style links /#
+function ci_getlnk(l,n,v,j) do
+ if l='ERROR' then l='' /if
+ if n='ERROR' then n='' /if
+ if v='ERROR' then v='' /if
+ if j='ERROR' then j='' /if
+ if j<>'' then j=' '+j /if
+ if n='' then 
+  return 'href="'+l+'"'+j /return
+ else
+  return 'href="'+l+'" name="'+n+'" value="'+v+'"'+j /return
+ /if
+/function
+
+function ci_image2(path,x,y,l,n,v,j,lg,qt,cmd,cmdoptions) do
+ # this allows for additional options to be applied to the image /#
+ l=ci_getlnk(l,n,v,j)
+ if j="" then j=' border="0"' /if
+ return ci_imagealloptions(path,x,y,lg,qt,cmd,cmdoptions,j,l,"",'pict') /return
+/function
+
+function ci_imagenr2(path,x,y,l,n,v,j,lg,qt,cmd,cmdoptions) do
+ l=ci_getlnk(l,n,v,j)
+ if j="" then j=' border="0"' /if
+ return ci_imagenrall(path,x,y,lg,qt,cmd,cmdoptions,j,l,"",'pict') /return
+/function
+
+function ci_imagenr(path,x,y,l,n,v,j,lg) locals img,ci_temp do
+ l=ci_getlnk(l,n,v,j)
+ if j="" then j=' border="0"' /if
+ return ci_imagenrall(path,x,y,lg,ci_prefs[1,2],"","",j,l,"",'pict') /return
+/function
+
+function ci_image(path,x,y,l,n,v,j,lg) do
+ l=ci_getlnk(l,n,v,j)
+ if j="" then j=' border="0"' /if
+ return ci_imagealloptions(path,x,y,lg,ci_prefs[1,2],"","",j,l,"",'pict') /return
+/function
+
+# END Deprecated Here for Compatability (No longer using l,n,v,j style links /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Specialized Image Functions /#
+
+
+
+
+
+function ci_resize(path,x,y) do
+ return ci_resizeqt(path,x,y,ci_prefs[1,2]) /return
+/function
+
+
+
+
+
+function ci_resizeqt(path,x,y,qt) locals temp do
+ if qt="" then qt=ci_prefs[1,2] /if
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ temp=fileinfo(path) if temp[5]="PRIVATE" then ci_root=htmlpath /if
+ temp=syscall('ImageServices:010',ci_prefs[1,7]+' -interlace none -quality '+qt+' '+ci_root+path+' -geometry '+x+'x'+y+' '+ci_root+path)
+ return temp /return
+/function
+
+
+
+
+
+function ci_convert(path,type) do
+ return ci_convertalloptions(path,type,ci_prefs[1,2]) /return
+/function
+
+
+
+
+
+function ci_convertqt(path,type,qt) locals temp,a do
+ return ci_convertalloptions(path,type,qt) /return
+/function
+
+
+
+
+
+function ci_convertalloptions(path,type,qt) locals temp,a do
+ if qt="" then qt=ci_prefs[1,2] /if
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ a=ci_extract(path)
+ temp=fileinfo(path) if temp[5]="PRIVATE" then ci_root=htmlpath /if
+ if isfile('/system/clearimage/colorprofiles/sRGB.icm') then
+
+
+
+
+  temp=syscall('ImageServices:011',ci_prefs[1,7]+' -interlace none -quality '+qt+' -profile '+ci_getpath('/system/clearimage/colorprofiles/USWebCoatedSWOP.icc')+' '+ci_root+path+' -profile '+ci_getpath('/system/clearimage/colorprofiles/sRGB.icm')+' '+type+':'+ci_root+path+RD2GTAMP1)
+ # 
+ # 
+ #   temp=syscall('ImageServices:011',ci_prefs[1,7]+' -interlace none -quality '+qt+' -colorspace RGB '+ci_root+path+' -profile '+ci_getpath('/system/clearimage/colorprofiles/sRGB.icm')+' '+type+':'+ci_root+path+RD2GTAMP1)
+ #   temp=syscall('ImageServices:011',ci_prefs[1,7]+' -interlace none -quality '+qt+' '+ci_root+path+' -profile '+ci_getpath('/system/clearimage/colorprofiles/sRGB.icm')+' '+type+':'+ci_root+path+RD2GTAMP1)
+ # 
+/#
+
+ else
+  temp=syscall('ImageServices:011',ci_prefs[1,7]+' -interlace none -quality '+qt+' '+ci_root+path+' '+type+':'+ci_root+path)
+ /if
+ return temp /return
+/function
+
+
+
+
+
+function ps2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'FALSE') /return
+/function
+
+
+
+
+
+function eps2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'FALSE') /return
+/function
+
+
+
+
+
+function pdf2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'FALSE') /return
+/function
+
+
+
+
+
+function FORCEps2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'TRUE') /return
+/function
+
+
+
+
+
+function FORCEeps2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'TRUE') /return
+/function
+
+
+
+
+
+function FORCEpdf2jpeg(pdf) do
+ return pdf2jpegALL(pdf,'TRUE') /return
+/function
+
+
+
+
+
+function pdf2jpegALL(pdf,overwrite) locals a,b,c,d,x,y do
+ if left(pdf,1)<>"/" then pdf=dirname(page)+pdf /if
+ temp=fileinfo(pdf) d=temp
+ if d='ERROR' then
+  temp="ERROR: FILE DOESN'T EXIST"
+ else
+  if temp[5]="PRIVATE" then ci_root=htmlpath /if
+  a=ci_extract(pdf)
+  if a[4]='.pdf' or a[4]='.ps' or a[4]='.eps' then
+   if isfile(pdf+'.jpg/CHECKSUM.txt') then
+    copy file=pdf+'.jpg/CHECKSUM.txt' to y /copy
+    if d[2]<>y then overwrite='TRUE' /if
+   /if
+   if isdir(pdf+'.jpg') and overwrite<>'TRUE' then
+    # Just return list /#
+   else
+    # Convert /#
+    if isdir(pdf+'.jpg') then
+     temp=sysls(pdf+'.jpg')
+     for name=temp rowname=x do
+      if left(x[1],length(a[2]))=a[2] then c=ci_rmfile(pdf+'.jpg/'+x[1]) /if
+     /for
+    else
+     temp=sysmd(pdf+'.jpg')
+    /if
+    temp=syscall('ImageServices:022',ci_prefs[1,7]+' -interlace none -quality '+ci_prefs[1,2]+' -density 300x300 '+ci_root+pdf+' -resize 25% JPG:'+ci_root+pdf+'.jpg/'+a[2]+'%d.jpg')
+    copy d[2] to file=pdf+'.jpg/CHECKSUM.txt' /copy
+   /if
+   temp=sysls(pdf+'.jpg')
+   c='ERROR'
+   for name=temp rowname=x do
+    if left(x[1],length(a[2]))=a[2] then x[1]=pdf+'.jpg/'+x[1] if c='ERROR' then c=x else c=append(c,x) /if /if
+   /for
+   temp=c
+  else
+   temp='ERROR: INVALID INPUT FILE MUST BE PDF'+ci_table(a)
+  /if
+ /if
+ return temp /return
+/function
+
+
+
+
+
+function ci_coloroverlay(s,d,c) do
+ temp=ci_rmimage(d)
+ temp=syscall(^ImageServices: Color Overlay^,^convert ^+ci_getpath(s)+^ \( -clone 0 -fill '^+c+^' -draw "color 0,0 reset" \) -compose atop -composite ^+ci_getpath(d))
+ return temp /return
+/function
+
+
+
+
+
+function ci_makeimg(image,x,y,list) locals a,b,c do
+ if ci_registeredversion<3.4 then return "ci_makeimg(image,x,y,list) requires Image Services 3.0 or greater" /return /if
+ if rows(list)<>1 then
+  list=reverserows(list)
+  b=image
+  for name=list rowname=a do
+   if a[2]='' or a[2]='ERROR' or not(isinteger(a[2])) or a[2]>100 or a[2]<0 then a[2]=100 /if
+   temp=syscall('ImageServices: ci_makeimg('+image+' adding:'+a[1]+')','composite -dissolve '+a[2]+' -gravity center '+ci_getpath(a[1])+' '+ci_getpath(b)+' '+ci_getpath(image+'.miff'))
+   b=image+'.miff'
+  /for
+  temp=syscp(b,image)
+  temp=ci_convert(image,"JPEG")
+  temp=ci_rmimage(b)
+  temp=ci_rmtemp(image)
+  return ci_img(image,x,y,'FALSE') /return
+ else
+  temp=ci_rmimage(image)
+  temp=syscp(list[1,1],image)
+  return ci_img(image,x,y,'FALSE') /return
+ /if
+/function
+
+
+
+
+
+# END Specialized Image Functions /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# BEGIN File Managment Functions /#
+
+
+
+
+
+function ci_mvfile(s,d) do
+ return ci_sysmvcp(s,d,'mv') /return
+/function
+
+
+
+
+
+function ci_cpfile(s,d) do
+ return ci_sysmvcp(s,d,'cp') /return
+/function
+
+
+
+
+
+function ci_rmfile(f) locals a,x do
+ if right(f,5)='.html' or right(f,4)='.htm' or right(f,3)='.db' then
+  a=dbsearch('/apps/imageservices/security/clear_files','CLEAR_PATHFILE="'+f+'"',1,1)
+  if dbresults[5,1]<>0 then
+   for name=a rowname=x do
+    temp=dbdelete('/apps/imageservices/security/clear_files',x[1])
+   /for
+  /if
+  b=ci_extract(f)
+  if isfile(b[1]+b[2]+'.scram') then temp=sysrm(b[1]+b[2]+'.scram') /if
+ /if
+
+ x=ci_getfid(f)
+ sysrm(x[6])
+ sysrm(x[7])
+
+ return sysrm(f) /return
+/function
+
+
+
+
+
+function ci_pripath(path) locals x do
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ x=fileinfo(path)
+ return replaceall(htmlpath+path,"//","/") /return
+/function
+
+
+
+
+
+function ci_pubpath(path) locals x do
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ x=fileinfo(path)
+ return replaceall(htmlos.conf.DocumentPath+path,"//","/") /return
+/function
+
+
+
+
+
+function ci_getpath(path) locals x do
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+ x=fileinfo(path)
+ if x[5]="PRIVATE" then
+  return replaceall(htmlpath+path,"//","/") /return
+ else
+  return replaceall(htmlos.conf.DocumentPath+path,"//","/") /return
+ /if
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ #
+ # Added case sensitive searches for .TEMP
+ #
+ # 
+ # function ci_extract(path) locals p,x do
+ #  # returns p[1]-Directory p[2] File w/o extension p[3]-TEMP Stuff p[4]-Extension /#
+ #  path=replaceall(path,ci_prefs[1,11],".[ci_prefs[1,11]]/")
+ #  p="ERROR"
+ #  if left(path,1)<>"/" then path=dirname(page)+path /if
+ # 
+ #  if   left(right(path,2),1)="." then p[3]=left(path,length(path)-2) p[4]=right(path,2) # 1 character extension /#
+ #  elif left(right(path,3),1)="." then p[3]=left(path,length(path)-3) p[4]=right(path,3) # 2 character extension /#
+ #  elif left(right(path,4),1)="." then p[3]=left(path,length(path)-4) p[4]=right(path,4) # 3 character extension /#
+ #  elif left(right(path,5),1)="." then p[3]=left(path,length(path)-5) p[4]=right(path,5) # 4 character extension /#
+ #  else                                p[3]=path                      p[4]=""
+ #  /if
+ #  p[2]=replace(chopright(p[3],ci_prefs[1,4]),ci_prefs[1,4],"")
+ #  p[3]=replace(p[3],p[2],"")
+ #  p[1]=reverse(chopleft(reverse(p[2]),"/"))
+ #  p[2]=replace(p[2],p[1],"")
+ #  p[1]=replaceall(p[1],".[ci_prefs[1,11]]/",ci_prefs[1,11])
+ #  p[2]=replaceall(p[2],".[ci_prefs[1,11]]/",ci_prefs[1,11])
+ #  p[5]=p[1]+p[2]+p[4]
+ #  p[6]=ci_prefs[1,11]
+ # 
+ #  if right(p[1],length(p[6]))=p[6] then p[7]=left(p[1],length(p[1])-length(p[6])) else p[7]=p[1] /if
+ # 
+ #  if right(p[1]+p[6],length(ci_prefs[1,11])*2)<>ci_prefs[1,11]+ci_prefs[1,11] then
+ #   if not(isdir(p[1]+p[6])) then x=filenewdir(p[1]+p[6]) /if
+ #  /if
+ #  return p /return
+ # /function
+ # 
+/# 
+
+
+
+function src2file(srcpath) locals e,x do
+ if left(srcpath,5)<>'/IMG/'    then return srcpath /return /if
+ if count(srcpath,'/XPATH/')=0  then return srcpath /return /if
+ # 
+ #   IN: /IMG/(1)/XPATH/(2)/(3)
+ #  OUT: /(2)/.TEMP/(1)_XDELIMIT_(3)
+/#
+ e=ci_extract(chopchopleft(srcpath,'/XPATH'))
+ return e[1]+'.TEMP/'+replace(chopchopright(replace(srcpath,'/IMG/',''),'/XPATH/'),'/home/','/domain/'+domainid+'/')+'_XDELIMIT_'+e[2]+e[4] /return
+/function
+
+
+
+function ci_extract(path) locals p,x do
+ # returns p[1]-Directory p[2] File w/o extension p[3]-TEMP Stuff p[4]-Extension /#
+ path=replaceallX(path,ci_prefs[1,11],".[ci_prefs[1,11]]/")
+ p="ERROR"
+ if left(path,1)<>"/" then path=dirname(page)+path /if
+
+ if   left(right(path,2),1)="." then p[3]=left(path,length(path)-2) p[4]=right(path,2) # 1 character extension /#
+ elif left(right(path,3),1)="." then p[3]=left(path,length(path)-3) p[4]=right(path,3) # 2 character extension /#
+ elif left(right(path,4),1)="." then p[3]=left(path,length(path)-4) p[4]=right(path,4) # 3 character extension /#
+ elif left(right(path,5),1)="." then p[3]=left(path,length(path)-5) p[4]=right(path,5) # 4 character extension /#
+ else                                p[3]=path                      p[4]=""
+ /if
+ p[2]=replaceX(choprightX(p[3],ci_prefs[1,4]),ci_prefs[1,4],"")
+ p[3]=replaceX(p[3],p[2],"")
+ p[1]=reverse(chopleftX(reverse(p[2]),"/"))
+ p[2]=replaceX(p[2],p[1],"")
+ p[1]=replaceallX(p[1],".[ci_prefs[1,11]]/",ci_prefs[1,11])
+ p[2]=replaceallX(p[2],".[ci_prefs[1,11]]/",ci_prefs[1,11])
+ p[5]=p[1]+p[2]+p[4]
+ p[6]=ci_prefs[1,11]
+
+
+ if replaceX(right(p[1],length(p[6])),ci_prefs[1,11],'equal')='equal' then p[7]=left(p[1],length(p[1])-length(p[6])) else p[7]=p[1] /if
+
+ # 
+ #  if right(p[1],length(p[6]))=ci_prefs[1,11] then p[7]=left(p[1],length(p[1])-length(p[6])) else p[7]=p[1] /if
+ #
+ # if right(p[1],length(p[6]))==ci_prefs[1,11] then p[7]=left(p[1],length(p[1])-length(p[6])) else p[7]=p[1] /if
+/# 
+
+
+ if right(p[1]+p[6],length(ci_prefs[1,11])*2)!==ci_prefs[1,11]+ci_prefs[1,11] then
+  if not(isdir(p[1]+p[6])) then x=filenewdir(p[1]+p[6]) /if
+ /if
+ return p /return
+/function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function croppaths(path) locals x,z,s,e,l,o,f do
+ x=ci_extract(path)
+ l=sysls(x[7]+'.CROP/')
+ o='ERROR'
+ s=length(x[2])+1
+ e=length(x[4])
+  # 
+  # start ==> x[7]+'.CROP/'+x[2]+'x'
+  # end   ==> x[4]
+ /#
+ for name=l rowname=f do
+  z=ci_extract(f[1])
+  if left(f[1],s)=x[2]+'x' and z[4]=x[4] then
+   o=appends(o,x[7]+'.CROP/'+f[1])
+  /if
+ /for
+ return o /return
+/function
+
+
+
+
+
+
+
+function croppath(path,aspect) locals a,x,p do
+ a=middle('10000'+((round((aspect+.000001)*10000)/10000)+.000001),2,10)
+ x=ci_extract(path)
+ sysmd(x[7]+'.CROP')
+ p=x[7]+'.CROP/'+x[2]+'x'+a+x[4]
+ return p /return
+/function
+
+
+
+
+
+
+function ci_rmtemp(ipath) locals pt,ls,dn,x,y,temp do
+ if left(ipath,1)<>"/" then ipath=dirname(page)+ipath /if
+ pt=ci_extract(ipath)
+ dn=dirname(ipath)
+ ls=filelist(dn+pt[6])
+ for name=ls rowname=x do
+  isthumb=replace(chopleft(x[1],'_XDELIMIT_'),'_XDELIMIT_','')
+  x[1]=dn+pt[6]+x[1]
+  y=ci_extract(x[1])
+  if ((y[1]+y[2]+y[4]=pt[1]+pt[6]+pt[2]+pt[4] or y[1]+y[2]=pt[1]+pt[6]+pt[2]+pt[4]) and x[1]<>(pt[1]+pt[6]+pt[2]+pt[4])) or (y[2]=pt[2] and y[4]=".imid") then
+   temp=ci_rmfile(x[1])
+  elif y[2]=pt[2] and ci_prefs[1,4]+pt[4]=left(y[3],length(ci_prefs[1,4]+pt[4])) then 
+   temp=ci_rmfile(x[1])
+  elif isthumb=pt[2]+pt[4] or isthumb=pt[2]+pt[4]+'.imid' then
+   temp=ci_rmfile(x[1])
+  /if
+ /for
+ return temp /return
+/function
+
+
+
+
+
+function ci_rmimage(path) locals temp do
+  if left(path,1)<>"/" then path=dirname(page)+path /if
+  if isfile(path) then
+   temp=ci_rmfile(path)
+   temp=ci_rmtemp(path)
+   temp=ci_rmfile(path+'ORIGINAL')
+   temp=ci_rmtemp(path+'ORIGINAL')
+   temp=croppaths(path)
+   if temp<>'' and temp<>'ERROR' then
+    for name=temp rowname=x do
+     temp1=ci_rmtemp(x[1])
+     temp1=ci_rmfile(x[1])
+    /for
+   /if
+   if isfile(path) then temp='ERROR: FILE NOT REMOVED' else temp='TRUE' /if
+  else
+   temp='ERROR: NO IMAGE FOUND'
+  /if
+ return temp /return
+/function
+
+
+
+
+
+# END File Managment Functions /#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# START Undocumented Functions /#
+
+
+
+
+
+function getlighthexcolor(text,o) locals a,y,s,x,t do
+ return
+  right('X'+right("X0"+ci_dectohex(boundit(120+o,0,255)),2)
+           +right("X0"+ci_dectohex(boundit(140+o,0,255)),2)
+           +right("X0"+ci_dectohex(boundit(200+o,0,255)),2),6)
+ /return
+/function
+
+
+
+
+
+function boundit(a,b,c) do
+ if a<b then return b /return /if
+ if a>c then return c /return /if
+ return a /return
+/function
+
+
+
+
+
+function ci_regok(regid) locals ci_temp,x do
+ ci_registeredversion="ERROR"
+ ci_expire="ERROR"
+ ci_registered="ERROR"
+ if regid<>"" and regid<>"ERROR" and domainname<>"LOCALHOST" then
+  ci_temp=unencrypt(regid,^ue^+'>'+"tag"+^bl^)
+  ci_temp=split(ci_temp,"|")
+  if domainname=ci_temp[1,1] then
+   if isdate(ci_temp[1,3]) and date(ci_temp[1,3])>date(now) then
+    ci_expire=" "+datetill(right(ci_temp[1,3],10),"days")+" days left"
+    ci_registered="TRUE"
+    ci_registeredversion=ci_temp[1,2]
+   elif ci_temp[1,3]="PERMANENT" then
+    ci_expire=""
+    ci_registered="TRUE"
+    ci_registeredversion=ci_temp[1,2]
+   else
+    ci_expire=ci_temp[1,3]
+    ci_registered="FALSE"
+    ci_registeredversion=ci_temp[1,2]
+   /if
+  else
+   ci_expire=""
+   ci_registered="FALSE"
+   ci_registeredversion=0
+  /if
+  if domainname="localhost" or domainname='wbl.me' then
+   ci_expire=""
+   ci_registered="TRUE"
+   ci_registeredversion=ci_version()
+  /if
+ /if
+ return ci_registered /return
+/function
+
+
+
+
+
+
+function ci_reg(regid) locals ci_temp,x do
+ ci_temp=unencrypt(regid,^ue^+'>'+"tag"+^bl^)
+ return split(ci_temp,"|") /return
+/function
+
+
+
+
+
+
+
+
+function ci_stats() do
+ return ci_table(ci_stats) /return
+/function
+
+
+
+
+
+function ci_timing(fun) locals x do
+ if ci_globallasttime='ERROR' then ci_globallasttime=systime /if
+ if (systime-ci_globallasttime)/1000>2 then
+  ci_globallasttime=systime
+  ci_stats="ERROR"
+  # Timing start and Descriptor    /# ci_stats[1,1]="Library" ci_stats[2,1]="ci_config" ci_stats[3,1]="ci_identify" ci_stats[4,1]="ci_image" ci_stats[5,1]=""
+  # Total Load Time (all cycles)   /# ci_stats[1,2]=0 ci_stats[2,2]=0 ci_stats[3,2]=0 ci_stats[4,2]=0 ci_stats[5,2]="Load in milliseconds"
+  # Number of cycles thru function /# ci_stats[1,3]=0 ci_stats[2,3]=0 ci_stats[3,3]=0 ci_stats[4,3]=0 ci_stats[5,3]="Cycles"
+ /if
+ # fun should be something like B1 or E1 /#
+ x[1]="Library" x[2]="ci_config" x[3]="ci_identify" x[4]="ci_image"
+ if left(fun,1)="B" then
+  fun=right(fun,length(fun)-1)
+      if fun=1 then
+       ci_stats="ERROR"
+       # Timing start and Descriptor    /# ci_stats[1,1]="Library" ci_stats[2,1]="ci_config" ci_stats[3,1]="ci_identify" ci_stats[4,1]="ci_image" ci_stats[5,1]=""
+       # Total Load Time (all cycles)   /# ci_stats[1,2]=0 ci_stats[2,2]=0 ci_stats[3,2]=0 ci_stats[4,2]=0 ci_stats[5,2]="Load in milliseconds"
+       # Number of cycles thru function /# ci_stats[1,3]=0 ci_stats[2,3]=0 ci_stats[3,3]=0 ci_stats[4,3]=0 ci_stats[5,3]="Cycles"
+      /if
+  ci_stats[fun,3]=ci_stats[fun,3]+1
+  ci_stats[fun,1]=systime
+ else
+  fun=right(fun,length(fun)-1)
+  ci_stats[fun,2]=ci_stats[fun,2]+(systime-ci_stats[fun,1])
+  ci_stats[fun,1]=x[fun]
+ /if
+ ci_globallasttime=systime
+ return ci_stats[1,2]+ci_stats[2,2]+ci_stats[3,2]+ci_stats[4,2] /return
+/function
+
+
+
+
+
+# END Undocumented Functions /#

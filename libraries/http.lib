@@ -1,0 +1,334 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+function XML.get.attributes(text) locals tab,attribs,i,x do
+ tab=split(text,'=')
+ attribs='ERROR'
+ for name=tab rownum=i do
+  if i>1 then
+   x='ERROR'
+   x[1]=reverse(chopchopright(reverse(' '+tab[1,i-1]),' '))
+   x[2]=chopchopleft(reverse(chopchopleft(reverse(tab[1,i]),'"')),'"')
+   attribs=appends(attribs,x)
+  /if
+ /for
+ return attribs /return
+/function
+
+
+
+
+
+function DLLCSVnamevalue(text) locals namespace do
+ namespace='ERROR'
+ return CSVnamespacevalue(text,namespace) /return
+/function
+
+function DLLXMLnamevalue(text) locals namespace do
+ namespace='ERROR'
+ return XMLnamespacevalue(text,namespace) /return
+/function
+
+function DLLJSONnamevalue(text) locals namespace do
+ namespace='ERROR'
+ return JSONnamespacevalue(text,namespace) /return
+/function
+
+
+function DLLnamespace(a,n) locals x do 
+ n=showwith('',n,'')
+ if n='' then
+  return a /return
+ else
+  for name=a rownum=x do
+   a[1,x]=n+a[1,x]
+  /for
+  return a /return
+ /if
+/function
+
+
+
+
+
+
+
+
+function DLLCSVnamespacevalue(text,namespace) locals a,x,y,b do
+  namespace=showwith('',namespace,'')
+  text=csvtotable(text)
+  a='ERROR'
+  for name=y value=1 to rows(text) do
+   for name=x value=1 to cols(text) do
+    b='ERROR' b[1]=namespace+'['+x+','+y+']' b[2]=text[x,y]
+    a=appends(a,b)
+   /for
+  /for
+  return a /return
+/function
+
+function DLLJSONnamespacevalue(text,namespace) locals a,x,y,b,s,n do
+  a=jsontotable(text)
+  a=GETCOLNOTEQ(a,4,'OBJECT')
+  a=GETCOLNOTEQ(a,4,'ARRAY')
+  a=delcols(a,2,5)
+  a=namespace(a,namespace)
+  return a /return
+/function
+
+function DLLXMLnamespacevalue(text,namespace) do
+ return XMLnamespacevalueALL(text,namespace,'raw') /return
+/function
+
+function DLLdeXMLnamespacevalue(text,namespace) do
+ return XMLnamespacevalueALL(text,namespace,'decode') /return
+/function
+
+function XMLnamespacevalueALL(text,namespace,method) locals a,x,y,b,temp,tagopen.start,tagopen.end,tagclose.start,tagclose.end do
+  tagopen.start=5
+  tagopen.end=6
+  tagclose.start=7
+  tagclose.end=8
+
+  a=xmltotablex(text)
+    # 
+    # Returns a table, with the following columns, describing the XML data:
+    # [1] -	tag name
+    # [2] -	tag name with brackets
+    # [3] -	XML path
+    # [4] -	Depth of this tag
+    # [5] -	Start Location Of Tag Name
+    # [6] -	End Location Of Tag Name
+    # [7] -	Start Location of Tag Data
+    # [8] -	End Location of Tag Data
+    #-----------------------------------------
+    # [9] -     The content
+    #[10] -     Either "content" or empty
+   /#
+  for name=a rownum=x do
+   if a[tagclose.start,x]-a[tagopen.end]>0 then
+    i=middle(text,a[tagopen.end,x]+1,a[tagclose.start,x]-1)
+    if count(i,'<')>0 and count(i,'>')>=count(i,'<') then
+     a[10,x]=''
+    else
+     a[10,x]='content'
+     if method='decode' then
+      i=replaceall(i,'&apos;',"'")
+      i=replaceall(i,'&quot;','"')
+      i=replaceall(i,'&gt;','>')
+      i=replaceall(i,'&lt;','<')
+      i=replaceall(i,'&amp;','&')
+     /if
+     a[9,x]=i
+    /if
+   /if
+   if a[2,x]='<'+a[1,x]+'>' then 
+    a[2,x]=''
+   else
+    a[11,x]=trim(replace(middle(a[2,x],2,length(a[2,x])-1),a[1,x],''))
+    if a[10,x]='content' then
+
+    else
+     a[10,x]='attrib'
+    /if
+   /if
+  /for
+
+  a=GETCOLNOTEQ(a,10,'')
+  a=delcols(a,1,2)
+  a=delcols(a,2,6)
+  a=delcol(a,3)
+
+  b=a
+  a='ERROR'
+  for name=b rowname=x do
+   if x[3]='' then
+    a=appends(a,x)
+   else
+    if x[2]<>'' then
+     a=appends(a,x)
+    /if
+ # 
+ #     temp=x[1]
+ #     x[1]=left(x[1],length(x[1])-1)+' @>'
+ #     x[2]=x[3]
+ #     a=appends(a,x)
+ #     x[1]=temp
+/# 
+
+    temp=XML.get.attributes(x[3])
+    if temp<>'ERROR' and temp<>'' then
+     for name=temp rowname=z do
+      z[1]=left(x[1],length(x[1])-1)+' '+z[1]+'>'
+      a=appends(a,z)
+     /for
+    else
+     x[1]=left(x[1],length(x[1])-1)+' @>'
+     x[2]=x[3]
+     a=appends(a,x)
+    /if
+
+   /if
+  /for
+  b='ERROR'
+  a=delcol(a,3)
+  a=namespace(a,namespace)
+  return a /return
+/function
+
+
+function DLLhttptotable(httpdata) do
+ return httptotableALL(httpdata,'raw') /return
+/function
+
+function DLLhttpResponseToTable(httpdata) do
+ return httptotableALL(httpdata,'decode') /return
+/function
+
+
+function httptotableALL(httpdata,method) locals x,y,i,b,a,aa,header,lastheader,body,temp do
+ if count(httpdata,cr+lf+cr+lf)=0 then
+  header='MISSING'
+  body=httpdata
+ else
+  temp=split(httpdata,cr+lf+cr+lf)
+  header=''
+  body=''
+  for name=x value=1 to rows(temp) do
+   if left(temp[1,x],5)='HTTP/' then
+    header=showwith('',header,cr+lf+cr+lf)+temp[1,x]
+    lastheader=temp[1,x]
+   else
+    body=showwith('',body,cr+lf+cr+lf)+temp[1,x]
+   /if
+  /for
+ /if
+ aa='ERROR'
+  a='ERROR' a[1]='header' a[2]=header aa=appends(aa,a)
+  a='ERROR' a[1]='body'   a[2]=body   aa=appends(aa,a)
+  a='ERROR'
+ header=lastheader
+ if count(httpdata,cr+lf+cr+lf)=0 then
+  header='ERROR'
+ else
+ # 
+ #   header=ci_deltexttovar(header,cr+lf,': ')
+/#
+
+temp=split(header,cr+lf)
+i=1
+for name=temp rowname=h do
+ header[1,i]=chopchopright(h[1],': ')
+ header[2,i]=chopchopleft(h[1],': ')
+ i=i+1
+/for
+
+  header[2,1]=header[1,1]
+  header[1,1]='http_status_code'
+  a='ERROR' a[1]='http_protocol' a[2]=chopchopright(header[2,1],' ')
+  header[2,1]=chopchopleft(header[2,1],' ')
+  header=appends(a,header)
+ /if
+ if count(getvalue(header,'Content-Type'),'csv')=1 then
+  a=CSVnamespacevalue(body,'body:')
+ elif count(getvalue(header,'Content-Type'),'json')=1 then
+  a=JSONnamespacevalue(body,'body:')
+ elif count(getvalue(header,'Content-Type'),'xml')=1 then
+  a=XMLnamespacevalueALL(body,'body:',method)
+ elif count(getvalue(header,'Content-Type'),'pkix-cert')=1 then
+  rnd='/upload/temp_'+usernum+'_'+random(1000,9999)+'.bin'
+  TEXTTOBIN(body,rnd)
+  sysfixprivate(rnd)
+  a='ERROR'
+  a[1]='body:pem'
+   #
+   # Expecting key manager to be loaded, we plug it in case it isn't
+  /#
+  if isfile('/apps/api/keymanager/config.lib') then expand file='/apps/api/keymanager/config.lib' /expand /if
+  if keys_connect_openssl='' or keys_connect_openssl='ERROR' then keys_connect_openssl='/usr/bin/openssl' /if
+
+  a[2]=syscall_with_commas('DER to PEM',keys_connect_openssl+' x509 -in '+ci_pripath(rnd)+' -inform der -outform pem')
+  sysrm(rnd)
+ else
+  a='ERROR'
+ /if
+ a=appends(a,aa)
+ for name=header rownum=x do
+  header[1,x]='header:'+header[1,x]
+ /for
+ return appends(header,a) /return
+/function
+
+
+
+
+function DLLcurl.get(url,head) locals req do
+ if count(head,':')>0 then
+  header=ci_deltexttovar(head,cr+lf,': ')
+  for name=header rownum=x do
+   header[1,x]='request:header:'+header[1,x]
+  /for
+ else
+  header='ERROR'
+ /if
+ req='ERROR' req[1]='request:url' req[2]=url
+ x='ERROR' x[1]='request:header' x[2]=head
+ req=appends(req,x)
+ return appends(req,appends(header,httptotable(curl_include_response_header(url,0,'GET','',head)))) /return
+/function
+
+
+
+function DLLcurl.post(url,head,body) locals req do
+ if count(head,':')>0 then
+  header=ci_deltexttovar(head,cr+lf,': ')
+  for name=header rownum=x do
+   header[1,x]='request:header:'+header[1,x]
+  /for
+ else
+  header='ERROR'
+ /if
+ req='ERROR'
+ x='ERROR' x[1]='request:url' x[2]=url
+ req=appends(req,x)
+ x='ERROR' x[1]='request:header' x[2]=head
+ req=appends(req,x)
+ x='ERROR' x[1]='request:body' x[2]=body
+ req=appends(req,x)
+ return appends(req,appends(header,httptotable(curl_include_response_header(url,0,'POST',body,head)))) /return
+/function
+
+
+
+
+function DLLhttp.get(url) locals req do
+ req='ERROR' req[1]='request:url' req[2]=url
+ return appends(req,httptotable(curl_include_response_header(url,0,'GET','',''))) /return
+/function
+
+function DLLhttp.post(url,body) locals x,req do
+ req='ERROR'
+ x='ERROR' x[1]='request:url' x[2]=url
+ req=appends(req,x)
+ x='ERROR' x[1]='request:body' x[2]=body
+ req=appends(req,x)
+ return appends(req,httptotable(curl_include_response_header(url,0,'POST',body,''))) /return
+/function
+
+
+
+
+function DLLhttp.push(content,header) do
+ if usernum*1=0 then
+  webpush(content,header)
+ else
+  webpush(content,header+cr+lf+'Set-Cookie: route'+route_digit+'_'+domainid+'='+postprep(reverse(chopchopright(reverse(getlink1("/apps/route/index.html")),'/')))+'; expires='+moment(adddays(nows(),365),'ddd, DD-MMM-YYYY hh:mm:ss [GMT]')+'; path=/')
+ /if
+/function
+
+

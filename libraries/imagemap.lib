@@ -1,0 +1,171 @@
+# DO NOT load this directly or use these functions directly
+  To use these functions simply add the following expand to your page
+  expand file="/system/clearimage/DLL.lib" /expand
+  then call them without the DLL attached
+/#
+
+
+
+
+
+function DLLci_imgmap2(image,login) locals checkvar,temp,tmp1,linkname,xyz,style,ci_temp,x,text,y,img,bg,map,path,ex,nam,mappath,hr,hrs,mult,xx,zz,imgALL,ci_imageformat,ci_mapstyle,ci_jpeg,ci_gif,keephi do
+ if ci_registeredversion<3 then temp[1]="ci_imgmap2(image,login) requires Image Services 3.0 or greater" temp[2]=temp[1] temp[3]=temp[1] return temp /return /if
+ if left(image,1)="/" then else image=dirname(page)+image /if
+ linkname=reverse(replace(chopright(reverse(image),"/"),"/",""))
+ if isfile(image) then
+  copy file=image+".csv" ts="," to map /copy 
+  if count(map[1,1],"|")=0 then
+   ci_imageformat="JPEG"
+   ci_mapstyle="21"
+   ci_jpeg=80
+   ci_gif=32
+  else
+   ci_temp=listtorow(map[1,1],"|")
+   ci_imageformat=ci_temp[1]
+   ci_mapstyle=ci_temp[2]
+   ci_jpeg=ci_temp[3]
+   ci_gif=ci_temp[4]
+   map[1,1]=ci_temp[5]
+  /if
+  style=ci_mapstyle
+  path=image
+  mapname=replaceall(replaceall(replace(image,dirname(page),""),".",""),"/","")
+  bg=image+"bg"
+  img=ci_img(path,"","",login)
+  img=ci_tagresults
+  text=""
+  if style=0 then
+   text=text+'<map name="'+mapname+'">'+lf
+   if login="TRUE" then text=text+'  <area coords="0,0,12,12" href="/apps/imageservices/headedit.html" name="ci_programparams" value="'+image+'|'+style+'|'+page+'|'+varpage+'|1">'+lf /if
+   xx=1
+   for name=x value=1 to rows(map) do
+    if isinteger(map[4,x]) and isinteger(map[5,x]) and isinteger(map[6,x]) and isinteger(map[7,x]) and map[1,x]<>"" and map[1,x]<>"ERROR" then
+     text=text+'  <area coords="'+map[4,x]+','+map[5,x]+','+map[6,x]+','+map[7,x]+'" '+map[1,x]+'>'+lf
+    /if
+   /for
+   text=text+' </map>'+lf
+   ci_temp='<img src="'+img[10]+'" width="'+img[1]+'" height="'+img[2]+'" border="0" ISMAP USEMAP="#'+mapname+'">'+lf+text
+   text=""
+   text[1]=""
+   text[2]=""
+   text[3]=ci_temp
+   return text /return
+  else
+   ex=ci_extract(image)
+   mappath=ex[1]+ex[2]+'ALL'+ex[4]
+   imgALL=ci_img(mappath,"","",login) imgALL=ci_tagresults if imgall[10]="" then imgall[10]="/apps/imageservices/pictphoto.gif" /if
+   text[1]='<link rel="stylesheet" type="text/css" href="'+syspublicurl+'/'+ex[1]+ex[2]+'.css" media="all">'
+   text[2]='#'+mapname+' {position: relative; display: block; background: url("'+imgALL[10]+'") 0 0 no-repeat; width: '+img[1]+'px; height: '+img[2]+'px;}'+lf+
+           '#'+mapname+'href a {text-decoration: none; background-image: url("'+imgALL[10]+'"); position: absolute; display: block; z-index: 1;}'+lf+
+           '#'+mapname+'href a i { visibility: hidden; }'+lf+lf
+   text[3]=''
+   if login="TRUE" then
+    xx=rows(map)+1
+    map[1,xx]='href="/apps/imageservices/headedit.html" name="ci_programparams" value="'+image+'|'+style+'|'+page+'|'+varpage+'|1|ERROR"' map[4,xx]=0 map[5,xx]=0 map[6,xx]=12 map[7,xx]=12
+   /if
+   xx=rows(map) xyz=xx
+   for name=x value=1 to xx do
+    if xx=1 then zz='z-index: 0; ' else zz='' /if
+    if isinteger(map[4,x]) and isinteger(map[5,x]) and isinteger(map[6,x]) and isinteger(map[7,x]) and map[1,x]<>"" and map[1,x]<>"ERROR" then
+     nam=linkname+x
+     ex=split(map[1,x]," ")
+     for name=ex rowname=y do
+      if left(y[1],5)="href=" then
+       hr=replaceall(middle(y[1],6,length(y[1])),'"',"")
+       if left(hr,1)="/" then
+        hrs=replace(hr,dirname(page),"")
+       else
+        hrs=hr
+        hr=dirname(page)+hr
+       /if
+      /if
+     /for
+     if map[2,x]<>"ERROR" and map[2,x]<>"" then hrs=map[2,x] /if
+     if style="31" then
+      keephi=map[8,x]
+      if map[9,x]<>'' and map[9,x]<>'ERROR' then
+       checkvar=3
+       if count(map[9,x],"|")=0 then
+        if map[9,x]=@keephi then checkvar=1 /if
+       else
+        temp=split(map[9,x],"|")
+        for name=temp rowname=tmp1 do
+         if tmp1[1]=@keephi then checkvar=1 /if
+        /for
+       /if
+      else
+       checkvar=0
+      /if
+      if checkvar=1 then
+       mult=2
+      elif hr=page and checkvar=0 then
+       mult=2
+      else
+       mult=0
+      /if
+     else
+      mult=0
+     /if
+     text[2]=text[2]+'a#'+nam+' {'+zz+'left: '+map[4,x]+'px; top: '+map[5,x]+'px; height: '+(map[7,x]-map[5,x])+'px; width: '+(map[6,x]-map[4,x])+'px; background-position: -'+map[4,x]+'px -'+(map[5,x]+(mult*img[2]))+'px;}'+lf
+     if style="11" or mult=2 or (x=xyz and login="TRUE") then else
+      text[2]=text[2]+'a#'+nam+':hover {background-position: -'+map[4,x]+'px -'+(img[2]+map[5,x])+'px;}'+lf+lf
+     /if
+     if login="DUMMY" then
+      text[3]=text[3]+'<a href="#" id="'+nam+'"><i>'+hrs+'</i></a>'+lf
+     else
+      hrs="" # send no text to fix an ie bug /#
+      text[3]=text[3]+'<a '+ci_parsehref(replace(map[1,x],'[syspublicurl]',syspublicurl))+' id="'+nam+'"><i>'+hrs+'</i></a>'+lf
+     /if
+    /if
+   /for
+   text[3]='<div id="'+mapname+'">'+lf+'<div id="'+mapname+'href">'+lf+text[3]+lf+'</div>'+lf+'</div>'
+   return text/return
+  /if
+ else
+  text[3]=ci_img(image,"","",login)
+ /if
+ return text /return
+/function
+
+
+
+
+
+function DLLci_imgmap(image,login) locals x,text,y,img,bg,mapfile,map,path do
+ if left(image,1)="/" then else image=dirname(page)+image /if
+ if isfile(image) then
+  mapfile=image+".csv"
+  path=image
+  copy file=mapfile ts="," to map /copy
+  if count(map[1,1],"|")=0 then
+   ci_imageformat="JPEG"
+   ci_mapstyle="21"
+   ci_jpeg=80
+   ci_gif=32
+  else
+  ci_temp=listtorow(map[1,1],"|")
+   ci_imageformat=ci_temp[1]
+   ci_mapstyle=ci_temp[2]
+   ci_jpeg=ci_temp[3]
+   ci_gif=ci_temp[4]
+   map[1,1]=ci_temp[5]
+  /if
+  mapname=replaceall(replaceall(mapfile,".",""),"/","")
+  bg=image+"bg"
+  text=""
+  text=text+'<map name="'+mapname+'">'+lf
+  if login="TRUE" then text=text+'  <area coords="0,0,12,12" href="/apps/imageservices/headedit.html" name="ci_programparams" value="'+image+'|0|'+page+'|'+varpage+'|0" style="background: red;">'+lf /if
+  for name=x value=1 to rows(map) do
+   if isinteger(map[4,x]) and isinteger(map[5,x]) and isinteger(map[6,x]) and isinteger(map[7,x]) and map[1,x]<>"" and map[1,x]<>"ERROR" then
+    text=text+'  <area coords="'+map[4,x]+','+map[5,x]+','+map[6,x]+','+map[7,x]+'" '+ci_parsehref(map[1,x])+'>'+lf
+   /if
+  /for
+  text=text+' </map>'+lf
+  img=ci_img(path,"","",login)
+  img=ci_tagresults
+  text='<img src="'+img[10]+'" width="'+img[1]+'" height="'+img[2]+'" border="0" ISMAP USEMAP="#'+mapname+'">'+lf+text
+  return text /return
+ else
+  return ci_img(image,"","",login) /return
+ /if
+/function
